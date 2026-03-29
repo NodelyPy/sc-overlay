@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="NodelyPy">
     <link rel="apple-touch-icon" href="icon-192.svg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -104,6 +105,7 @@
             height: 2px; background: transparent; border-radius: 2px;
             transition: all 0.3s ease;
         }
+        .tab i { font-size: 0.82rem; width: 1em; text-align: center; }
         .tab:hover { color: #ebebeb; }
         .tab:hover::after { background: rgba(53, 182, 236, 0.3); left: 10%; right: 10%; }
         .tab.active { color: #35b6ec; }
@@ -455,13 +457,13 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" data-tab="timer">⏱ <span class="tab-label">Timer</span></button>
-            <button class="tab" data-tab="trade">💰 <span class="tab-label">Trade</span></button>
-            <button class="tab" data-tab="mining">⛏ <span class="tab-label">Mining</span></button>
-            <button class="tab" data-tab="ships">🚀 <span class="tab-label">Ships</span></button>
-            <button class="tab" data-tab="keys">⌨ <span class="tab-label">Keys</span></button>
-            <button class="tab" data-tab="notes">📝 <span class="tab-label">Notes</span></button>
-            <button class="tab" data-tab="missions">📋 <span class="tab-label">Missions</span></button>
+            <button class="tab active" data-tab="timer"><i class="fa-solid fa-stopwatch"></i> <span class="tab-label">Timer</span></button>
+            <button class="tab" data-tab="trade"><i class="fa-solid fa-coins"></i> <span class="tab-label">Trade</span></button>
+            <button class="tab" data-tab="mining"><i class="fa-solid fa-gem"></i> <span class="tab-label">Mining</span></button>
+            <button class="tab" data-tab="ships"><i class="fa-solid fa-rocket"></i> <span class="tab-label">Ships</span></button>
+            <button class="tab" data-tab="keys"><i class="fa-solid fa-keyboard"></i> <span class="tab-label">Keys</span></button>
+            <button class="tab" data-tab="notes"><i class="fa-solid fa-note-sticky"></i> <span class="tab-label">Notes</span></button>
+            <button class="tab" data-tab="missions"><i class="fa-solid fa-crosshairs"></i> <span class="tab-label">Missions</span></button>
         </div>
 
         <div class="panels-wrap">
