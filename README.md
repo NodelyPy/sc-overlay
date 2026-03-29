@@ -93,4 +93,4 @@ This project uses data and services from the following sources. Full credit goes
 
 ## License
 
-Copyright © 2025 NodelyPy. All Rights Reserved. See [LICENSE](LICENSE) for details.
+Copyright © 2026 NodelyPy. All Rights Reserved. See [LICENSE](LICENSE) for details.
