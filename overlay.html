@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SC Overlay</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#111f29">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NodelyPy">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #111f29;
+            color: #ebebeb;
+            user-select: none;
+            overflow: hidden;
+        }
+        body.electron { background: transparent; }
+
+        .overlay {
+            background: rgba(17, 31, 41, 0.88);
+            border: 1px solid rgba(53, 182, 236, 0.25);
+            border-radius: 16px;
+            backdrop-filter: blur(20px);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ===== TITLE BAR ===== */
+        .titlebar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            -webkit-app-region: drag;
+            border-bottom: 1px solid rgba(28, 77, 110, 0.3);
+            flex-shrink: 0;
+            position: relative;
+        }
+        .titlebar-logo { font-size: 0.95rem; font-weight: 700; }
+        .titlebar-logo .node { color: #ebebeb; }
+        .titlebar-logo .py { color: #00b4d8; }
+        .titlebar-logo .label {
+            color: #9bc3d1; font-weight: 700; font-size: 0.75rem; font-style: italic;
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap;
+        }
+        .titlebar-btns { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+        .titlebar-btns button {
+            width: 28px; height: 28px; border-radius: 8px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(28, 77, 110, 0.15); color: #9bc3d1;
+            font-size: 0.8rem; cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .titlebar-btns button:hover { background: rgba(28, 77, 110, 0.4); color: #ebebeb; }
+        .btn-close:hover { background: rgba(237, 66, 69, 0.3) !important; color: #ed4245 !important; }
+
+        /* ===== STATUS BAR ===== */
+        .status-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px; font-size: 0.7rem; color: #9bc3d1;
+            border-bottom: 1px solid rgba(28, 77, 110, 0.2); flex-shrink: 0;
+        }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #57f287; animation: pulse 2s infinite; }
+        .status-dot.off { background: #ed4245; animation: none; }
+        .click-through-badge {
+            margin-left: auto; padding: 2px 8px; border-radius: 4px;
+            background: rgba(254, 231, 92, 0.15); color: #fee75c;
+            font-size: 0.65rem; font-weight: 600; display: none;
+        }
+        .click-through-badge.active { display: block; }
+
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex; padding: 6px 10px; gap: 4px;
+            border-bottom: 1px solid rgba(28, 77, 110, 0.2); flex-shrink: 0;
+        }
+        .tab {
+            padding: 6px 12px; border-radius: 8px; font-size: 0.75rem;
+            font-weight: 600; cursor: pointer; color: #9bc3d1;
+            background: transparent; border: none; transition: background 0.2s, color 0.2s;
+        }
+        .tab:hover { background: rgba(28, 77, 110, 0.2); color: #ebebeb; }
+        .tab.active { background: rgba(53, 182, 236, 0.15); color: #35b6ec; }
+
+        /* ===== PANELS ===== */
+        .panels { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px; }
+        .panels::-webkit-scrollbar { width: 4px; }
+        .panels::-webkit-scrollbar-track { background: transparent; }
+        .panels::-webkit-scrollbar-thumb { background: rgba(53, 182, 236, 0.15); border-radius: 4px; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ===== SHARED STYLES ===== */
+        .card {
+            background: rgba(28, 77, 110, 0.08);
+            border: 1px solid rgba(28, 77, 110, 0.3);
+            border-radius: 12px; padding: 12px; margin-bottom: 8px;
+        }
+        .card-title {
+            font-size: 0.8rem; font-weight: 700; color: #ebebeb;
+            margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .loading { text-align: center; padding: 20px; color: #1c4d6e; font-size: 0.8rem; }
+        .loading::after { content: '...'; animation: dots 1.5s infinite; }
+        @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+        /* ===== TIMER ===== */
+        .timer-display {
+            font-size: 2.8rem; font-weight: 800; text-align: center; padding: 16px 0;
+            font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, #35b6ec, #57f287);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+        }
+        .timer-btns { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+        .timer-btn {
+            padding: 6px 18px; border-radius: 8px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(28, 77, 110, 0.15); color: #ebebeb;
+            font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+        }
+        .timer-btn:hover { background: rgba(28, 77, 110, 0.4); }
+        .timer-btn.start { background: rgba(87, 242, 135, 0.15); color: #57f287; border-color: rgba(87, 242, 135, 0.3); }
+        .timer-btn.stop { background: rgba(237, 66, 69, 0.15); color: #ed4245; border-color: rgba(237, 66, 69, 0.3); }
+        .laps { max-height: 120px; overflow-y: auto; }
+        .lap-item {
+            display: flex; justify-content: space-between; padding: 4px 0;
+            font-size: 0.75rem; color: #9bc3d1;
+            border-bottom: 1px solid rgba(28, 77, 110, 0.15);
+        }
+
+        /* ===== TRADE ===== */
+        .trade-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        .trade-input, .trade-select {
+            flex: 1; padding: 7px 10px; border-radius: 8px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(17, 31, 41, 0.5); color: #ebebeb;
+            font-size: 0.8rem; outline: none;
+        }
+        .trade-select option { background: #111f29; }
+        .trade-input::placeholder { color: #1c4d6e; }
+        .trade-result {
+            text-align: center; padding: 12px; margin-top: 8px;
+            border-radius: 10px; background: rgba(87, 242, 135, 0.06);
+            border: 1px solid rgba(87, 242, 135, 0.15);
+        }
+        .trade-profit {
+            font-size: 1.6rem; font-weight: 800;
+            background: linear-gradient(135deg, #57f287, #06b6d4);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+        }
+        .trade-profit.negative {
+            background: linear-gradient(135deg, #ed4245, #fe7353);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+        }
+        .trade-label { font-size: 0.72rem; color: #9bc3d1; margin-top: 2px; }
+
+        /* ===== MINING ===== */
+        .ore-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .ore-card {
+            background: rgba(28, 77, 110, 0.08);
+            border: 1px solid rgba(28, 77, 110, 0.3);
+            border-radius: 10px; padding: 10px; text-align: center;
+            transition: border-color 0.2s;
+        }
+        .ore-card:hover { border-color: rgba(53, 182, 236, 0.25); }
+        .ore-name { font-size: 0.78rem; font-weight: 700; color: #ebebeb; }
+        .ore-value { font-size: 0.9rem; font-weight: 800; color: #57f287; margin-top: 2px; }
+        .ore-unit { font-size: 0.65rem; color: #9bc3d1; }
+        .ore-card.top { border-color: rgba(254, 231, 92, 0.3); }
+        .ore-card.top .ore-name { color: #fee75c; }
+
+        /* ===== SHIPS ===== */
+        .ship-search {
+            width: 100%; padding: 8px 12px; border-radius: 10px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(17, 31, 41, 0.5); color: #ebebeb;
+            font-size: 0.82rem; outline: none; margin-bottom: 10px;
+        }
+        .ship-search::placeholder { color: #1c4d6e; }
+        .ship-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 0; border-bottom: 1px solid rgba(28, 77, 110, 0.15);
+            font-size: 0.78rem;
+        }
+        .ship-name { color: #ebebeb; font-weight: 600; }
+        .ship-detail { color: #9bc3d1; font-size: 0.7rem; }
+        .ship-scu {
+            padding: 2px 8px; background: rgba(53, 182, 236, 0.12);
+            border: 1px solid rgba(53, 182, 236, 0.25); border-radius: 5px;
+            color: #35b6ec; font-size: 0.72rem; font-weight: 600;
+        }
+        .ship-row { cursor: pointer; transition: background 0.2s; border-radius: 6px; padding: 8px 6px; }
+        .ship-row:hover { background: rgba(53, 182, 236, 0.08); }
+        .cargo-viewer-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; margin-bottom: 8px; border-radius: 8px;
+            background: rgba(53, 182, 236, 0.1); border: 1px solid rgba(53, 182, 236, 0.25);
+        }
+        .cargo-viewer-title { font-size: 0.78rem; font-weight: 700; color: #35b6ec; }
+        .cargo-viewer-close {
+            padding: 3px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 600;
+            border: 1px solid rgba(237, 66, 69, 0.3); background: rgba(237, 66, 69, 0.12);
+            color: #ed4245; cursor: pointer; transition: background 0.2s;
+        }
+        .cargo-viewer-close:hover { background: rgba(237, 66, 69, 0.25); }
+        .cargo-iframe-wrap {
+            border-radius: 10px; overflow: hidden; margin-bottom: 10px;
+            border: 1px solid rgba(28, 77, 110, 0.3);
+        }
+        .cargo-iframe-wrap iframe {
+            width: 100%; height: 400px; border: none; background: #0a0a0a;
+        }
+
+        /* ===== KEYBINDS ===== */
+        .keybind-search {
+            width: 100%; padding: 8px 12px; border-radius: 10px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(17, 31, 41, 0.5); color: #ebebeb;
+            font-size: 0.82rem; outline: none; margin-bottom: 10px;
+        }
+        .keybind-search::placeholder { color: #1c4d6e; }
+        .keybind-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; border-bottom: 1px solid rgba(28, 77, 110, 0.15); font-size: 0.78rem;
+        }
+        .keybind-action { color: #9bc3d1; }
+        .keybind-key {
+            padding: 2px 8px; background: rgba(53, 182, 236, 0.12);
+            border: 1px solid rgba(53, 182, 236, 0.25); border-radius: 5px;
+            color: #35b6ec; font-size: 0.72rem; font-weight: 600; font-family: monospace;
+        }
+        .keybind-category {
+            font-size: 0.7rem; font-weight: 700; color: #35b6ec;
+            text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0 4px;
+        }
+
+        /* ===== NOTEPAD ===== */
+        .notepad {
+            width: 100%; min-height: 180px; background: rgba(17, 31, 41, 0.5);
+            border: 1px solid rgba(28, 77, 110, 0.4); border-radius: 10px;
+            padding: 10px; color: #ebebeb; font-family: 'Segoe UI', sans-serif;
+            font-size: 0.82rem; resize: vertical; outline: none; line-height: 1.6;
+        }
+        .notepad::placeholder { color: #1c4d6e; }
+        .note-hint { font-size: 0.65rem; color: #1c4d6e; margin-top: 6px; text-align: right; }
+
+        /* ===== FOOTER ===== */
+        .hotkeys-footer {
+            padding: 8px 14px; border-top: 1px solid rgba(28, 77, 110, 0.2);
+            display: flex; justify-content: center; gap: 16px; flex-shrink: 0;
+        }
+        .hotkey-hint { font-size: 0.65rem; color: #1c4d6e; }
+        .hotkey-hint kbd {
+            padding: 1px 5px; background: rgba(28, 77, 110, 0.2);
+            border-radius: 3px; font-size: 0.62rem; color: #9bc3d1;
+        }
+
+        .live-badge {
+            font-size: 0.6rem; padding: 1px 6px; border-radius: 4px;
+            background: rgba(87, 242, 135, 0.15); color: #57f287;
+            font-weight: 600; margin-left: auto;
+        }
+
+        .last-updated { font-size: 0.6rem; color: #1c4d6e; text-align: right; margin-top: 6px; }
+
+        /* ===== MISSIONS ===== */
+        .mission-filters { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+        .mission-filter {
+            padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 600;
+            cursor: pointer; border: 1px solid rgba(28, 77, 110, 0.3);
+            background: rgba(28, 77, 110, 0.08); color: #9bc3d1; transition: all 0.2s;
+        }
+        .mission-filter:hover { background: rgba(53, 182, 236, 0.1); color: #35b6ec; }
+        .mission-filter.active { background: rgba(53, 182, 236, 0.15); color: #35b6ec; border-color: rgba(53, 182, 236, 0.3); }
+        .mission-search {
+            width: 100%; padding: 8px 12px; border-radius: 10px;
+            border: 1px solid rgba(28, 77, 110, 0.4); background: rgba(17, 31, 41, 0.5);
+            color: #ebebeb; font-size: 0.82rem; outline: none; margin-bottom: 10px;
+        }
+        .mission-search::placeholder { color: #1c4d6e; }
+        .mission-card {
+            background: rgba(28, 77, 110, 0.08); border: 1px solid rgba(28, 77, 110, 0.3);
+            border-left: 3px solid #35b6ec; border-radius: 8px; padding: 10px 12px;
+            margin-bottom: 6px; transition: border-color 0.2s;
+        }
+        .mission-card:hover { border-color: rgba(53, 182, 236, 0.5); }
+        .mission-card.illegal { border-left-color: #ed4245; }
+        .mission-name { font-size: 0.82rem; font-weight: 700; color: #ebebeb; margin-bottom: 4px; }
+        .mission-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+        .mission-tag { padding: 1px 6px; border-radius: 4px; font-size: 0.62rem; font-weight: 600; }
+        .tag-faction { background: rgba(53, 182, 236, 0.12); color: #35b6ec; }
+        .tag-system { background: rgba(87, 242, 135, 0.12); color: #57f287; }
+        .tag-type { background: rgba(155, 195, 209, 0.12); color: #9bc3d1; }
+        .tag-illegal { background: rgba(237, 66, 69, 0.12); color: #ed4245; }
+        .tag-blueprint { background: rgba(254, 231, 92, 0.12); color: #fee75c; }
+        .mission-reward { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
+        .mission-uec { color: #57f287; font-weight: 700; }
+        .mission-xp { color: #9bc3d1; }
+        .mission-count { font-size: 0.7rem; color: #9bc3d1; text-align: center; padding: 4px; }
+        .drops-toggle {
+            display: flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 8px;
+            border-radius: 6px; border: 1px solid rgba(254, 231, 92, 0.2);
+            background: rgba(254, 231, 92, 0.06); color: #fee75c;
+            font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .drops-toggle:hover { background: rgba(254, 231, 92, 0.12); border-color: rgba(254, 231, 92, 0.35); }
+        .drops-toggle .arrow { transition: transform 0.2s; display: inline-block; font-size: 0.6rem; }
+        .drops-toggle.open .arrow { transform: rotate(90deg); }
+        .drops-list {
+            display: none; margin-top: 6px; padding: 6px 8px;
+            border-radius: 6px; background: rgba(17, 31, 41, 0.4);
+            border: 1px solid rgba(28, 77, 110, 0.2);
+        }
+        .drops-list.open { display: block; }
+        .drop-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 2px 0; font-size: 0.68rem; color: #9bc3d1;
+        }
+        .drop-item .drop-icon { color: #fee75c; font-size: 0.6rem; }
+        .drop-item .drop-name { color: #ebebeb; }
+        .drop-pool-info {
+            font-size: 0.6rem; color: #1c4d6e; padding: 2px 0 4px;
+            border-bottom: 1px solid rgba(28, 77, 110, 0.15); margin-bottom: 4px;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* PWA / Mobile adjustments */
+        body:not(.electron) .titlebar { -webkit-app-region: unset; }
+        body:not(.electron) .titlebar-btns { display: none; }
+        body:not(.electron) .click-through-badge { display: none !important; }
+        body:not(.electron) .hotkeys-footer { display: none; }
+        body:not(.electron) .overlay {
+            background: rgba(17, 31, 41, 1);
+            border: none; border-radius: 0;
+            height: 100dvh;
+        }
+        body:not(.electron) .notepad { user-select: text; -webkit-user-select: text; }
+        body:not(.electron) .trade-input,
+        body:not(.electron) .trade-select,
+        body:not(.electron) .ship-search,
+        body:not(.electron) .keybind-search,
+        body:not(.electron) .mission-search { user-select: text; -webkit-user-select: text; }
+
+        @media (max-width: 480px) {
+            .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+            .tabs::-webkit-scrollbar { display: none; }
+            .tab { white-space: nowrap; padding: 6px 8px; font-size: 0.68rem; }
+            .ore-grid { grid-template-columns: 1fr 1fr; }
+            .timer-display { font-size: 2.2rem; }
+            .trade-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay">
+        <div class="titlebar">
+            <div class="titlebar-logo">
+                <span class="node">Nodely</span><span class="py">Py</span>
+                <span class="label" id="scQuote">Per aspera ad astra</span>
+            </div>
+            <div class="titlebar-btns">
+                <button onclick="overlay.minimize()" title="Hide (Ctrl+Shift+O)">─</button>
+                <button class="btn-close" onclick="overlay.close()" title="Close">✕</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Connecting to UEX...</span>
+            <div class="click-through-badge" id="ctBadge">CLICK-THROUGH</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="timer">⏱ Timer</button>
+            <button class="tab" data-tab="trade">💰 Trade</button>
+            <button class="tab" data-tab="mining">⛏ Mining</button>
+            <button class="tab" data-tab="ships">🚀 Ships</button>
+            <button class="tab" data-tab="keys">⌨ Keys</button>
+            <button class="tab" data-tab="notes">📝 Notes</button>
+            <button class="tab" data-tab="missions">📋 Missions</button>
+        </div>
+
+        <div class="panels">
+
+            <!-- TIMER -->
+            <div class="panel active" id="panel-timer">
+                <div class="card">
+                    <div class="timer-display" id="timerDisplay">00:00:00</div>
+                    <div class="timer-btns">
+                        <button class="timer-btn start" id="btnStart">Start</button>
+                        <button class="timer-btn" id="btnLap">Lap</button>
+                        <button class="timer-btn stop" id="btnReset">Reset</button>
+                    </div>
+                    <div class="laps" id="lapList"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">⏰ Quick Timers</div>
+                    <div class="timer-btns">
+                        <button class="timer-btn" onclick="startCountdown(300)">5 min</button>
+                        <button class="timer-btn" onclick="startCountdown(600)">10 min</button>
+                        <button class="timer-btn" onclick="startCountdown(900)">15 min</button>
+                        <button class="timer-btn" onclick="startCountdown(1800)">30 min</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRADE -->
+            <div class="panel" id="panel-trade">
+                <div class="card">
+                    <div class="card-title">💰 Profit Calculator <span class="live-badge">LIVE</span></div>
+                    <div class="trade-row">
+                        <select class="trade-select" id="tradeCommodity"><option value="">Loading commodities...</option></select>
+                    </div>
+                    <div class="trade-row">
+                        <input type="number" class="trade-input" id="buyPrice" placeholder="Buy price / SCU">
+                        <input type="number" class="trade-input" id="sellPrice" placeholder="Sell price / SCU">
+                    </div>
+                    <div class="trade-row">
+                        <input type="number" class="trade-input" id="scu" placeholder="SCU amount">
+                    </div>
+                    <div class="trade-result">
+                        <div class="trade-profit" id="profitDisplay">0 aUEC</div>
+                        <div class="trade-label">Estimated Profit</div>
+                    </div>
+                </div>
+                <div class="card" id="tradeRefCard">
+                    <div class="card-title">📊 Cargo Capacity</div>
+                    <div id="cargoRef"><div class="loading">Loading ships</div></div>
+                </div>
+            </div>
+
+            <!-- MINING -->
+            <div class="panel" id="panel-mining">
+                <div class="card">
+                    <div class="card-title">⛏ Refined Ore Prices <span class="live-badge">LIVE UEX</span></div>
+                    <div class="ore-grid" id="oreGrid"><div class="loading">Loading ore prices</div></div>
+                    <div class="last-updated" id="oreUpdated"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">💎 Hand-Mineable Gems <span class="live-badge">LIVE UEX</span></div>
+                    <div class="ore-grid" id="gemGrid"><div class="loading">Loading gem prices</div></div>
+                </div>
+            </div>
+
+            <!-- SHIPS -->
+            <div class="panel" id="panel-ships">
+                <input type="text" class="ship-search" id="shipSearch" placeholder="Search ships... (click a ship to view cargo grid)">
+                <div id="cargoViewer" style="display:none;"></div>
+                <div id="shipList"><div class="loading">Loading ships from UEX</div></div>
+            </div>
+
+            <!-- KEYBINDS -->
+            <div class="panel" id="panel-keys">
+                <input type="text" class="keybind-search" id="keybindSearch" placeholder="Search keybinds...">
+                <div id="keybindList">
+                    <div class="keybind-category">Flight</div>
+                    <div class="keybind-row"><span class="keybind-action">Quantum Travel</span><span class="keybind-key">B</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Cruise Control</span><span class="keybind-key">C</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Landing Gear</span><span class="keybind-key">N</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Decouple</span><span class="keybind-key">V</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Speed Limiter</span><span class="keybind-key">Scroll Wheel</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Afterburner</span><span class="keybind-key">Shift</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Space Brake</span><span class="keybind-key">X</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Strafe Up</span><span class="keybind-key">Space</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Strafe Down</span><span class="keybind-key">Ctrl</span></div>
+                    <div class="keybind-category">Combat</div>
+                    <div class="keybind-row"><span class="keybind-action">Fire Weapons</span><span class="keybind-key">LMB</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Missiles</span><span class="keybind-key">MMB</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Lock Target</span><span class="keybind-key">T (hold)</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Cycle Targets</span><span class="keybind-key">T (tap)</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Countermeasures</span><span class="keybind-key">H</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Gimbal Lock</span><span class="keybind-key">G</span></div>
+                    <div class="keybind-category">On Foot</div>
+                    <div class="keybind-row"><span class="keybind-action">Flashlight</span><span class="keybind-key">T</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Interact</span><span class="keybind-key">F</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Inventory</span><span class="keybind-key">I</span></div>
+                    <div class="keybind-row"><span class="keybind-action">MobiGlas</span><span class="keybind-key">F1</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Star Map</span><span class="keybind-key">F2</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Helmet On/Off</span><span class="keybind-key">[ ]</span></div>
+                    <div class="keybind-category">Mining</div>
+                    <div class="keybind-row"><span class="keybind-action">Mining Mode</span><span class="keybind-key">M</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Scan</span><span class="keybind-key">Tab</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Fracture/Extract</span><span class="keybind-key">LMB</span></div>
+                    <div class="keybind-row"><span class="keybind-action">Jettison Cargo</span><span class="keybind-key">RMB (hold)</span></div>
+                </div>
+            </div>
+
+            <!-- NOTEPAD -->
+            <div class="panel" id="panel-notes">
+                <div class="card">
+                    <div class="card-title">📝 Quick Notes</div>
+                    <textarea class="notepad" id="notepad" placeholder="Jot down mission details, trade routes, coords, targets..."></textarea>
+                    <div class="note-hint">Auto-saved locally</div>
+                </div>
+            </div>
+
+            <!-- MISSIONS -->
+            <div class="panel" id="panel-missions">
+                <input type="text" class="mission-search" id="missionSearch" placeholder="Search blueprint missions...">
+                <div class="mission-filters">
+                    <button class="mission-filter active" data-system="all">All Systems</button>
+                    <button class="mission-filter" data-system="Stanton">Stanton</button>
+                    <button class="mission-filter" data-system="Pyro">Pyro</button>
+                    <button class="mission-filter" data-system="Nyx">Nyx</button>
+                    <button class="mission-filter" data-system="Multi">Multi</button>
+                </div>
+                <div class="mission-count" id="missionCount"></div>
+                <div id="missionList"></div>
+            </div>
+
+        </div>
+
+        <div class="hotkeys-footer">
+            <span class="hotkey-hint"><kbd>Ctrl+Shift+O</kbd> Show/Hide</span>
+            <span class="hotkey-hint"><kbd>Ctrl+Shift+P</kbd> Click-through</span>
+        </div>
+    </div>
+
+    <script>
+        // Detect Electron vs PWA/browser
+        const isElectron = typeof window.overlay !== 'undefined';
+        if (isElectron) document.body.classList.add('electron');
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator && !isElectron) {
+            navigator.serviceWorker.register('./service-worker.js');
+        }
+
+        const UEX_API = 'https://api.uexcorp.space/2.0';
+        const UEX_TOKEN = '5005d29d6a5f1b6b746fb5ce0b955c8b90fcdb9e';
+
+        async function uexFetch(endpoint) {
+            const res = await fetch(`${UEX_API}/${endpoint}`, {
+                headers: { 'Authorization': `Bearer ${UEX_TOKEN}` }
+            });
+            const json = await res.json();
+            if (json.status === 'ok') return json.data;
+            throw new Error(json.message || 'API error');
+        }
+
+        // ===== TAB SWITCHING =====
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`panel-${tab.dataset.tab}`).classList.add('active');
+            });
+        });
+
+        // ===== STATUS CHECK =====
+        async function checkStatus() {
+            try {
+                await uexFetch('commodities/id/1');
+                document.getElementById('statusDot').classList.remove('off');
+                document.getElementById('statusText').textContent = 'UEX API Connected — Live Data';
+            } catch {
+                document.getElementById('statusDot').classList.add('off');
+                document.getElementById('statusText').textContent = 'UEX API Offline';
+            }
+        }
+
+        // ===== LOAD COMMODITIES (Trade Tab) =====
+        let allCommodities = [];
+        async function loadCommodities() {
+            try {
+                const data = await uexFetch('commodities');
+                allCommodities = data.filter(c => c.is_buyable || c.is_sellable);
+                const select = document.getElementById('tradeCommodity');
+                select.innerHTML = '<option value="">— Select Commodity —</option>';
+                allCommodities.sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.name}`;
+                    opt.dataset.buy = c.price_buy;
+                    opt.dataset.sell = c.price_sell;
+                    select.appendChild(opt);
+                });
+            } catch {
+                document.getElementById('tradeCommodity').innerHTML = '<option>Failed to load</option>';
+            }
+        }
+
+        document.getElementById('tradeCommodity').addEventListener('change', (e) => {
+            const opt = e.target.selectedOptions[0];
+            if (opt && opt.dataset.buy) {
+                document.getElementById('buyPrice').value = opt.dataset.buy;
+                document.getElementById('sellPrice').value = opt.dataset.sell;
+                calcProfit();
+            }
+        });
+
+        ['buyPrice', 'sellPrice', 'scu'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calcProfit);
+        });
+
+        function calcProfit() {
+            const buy = parseFloat(document.getElementById('buyPrice').value) || 0;
+            const sell = parseFloat(document.getElementById('sellPrice').value) || 0;
+            const scu = parseFloat(document.getElementById('scu').value) || 0;
+            const profit = (sell - buy) * scu;
+            const el = document.getElementById('profitDisplay');
+            el.textContent = profit.toLocaleString() + ' aUEC';
+            el.className = profit < 0 ? 'trade-profit negative' : 'trade-profit';
+        }
+
+        // ===== LOAD CARGO SHIPS (Trade Tab) =====
+        async function loadCargoShips() {
+            try {
+                const data = await uexFetch('vehicles');
+                const cargoShips = data.filter(v => v.scu > 0 && v.is_spaceship)
+                    .sort((a, b) => b.scu - a.scu).slice(0, 12);
+                const ref = document.getElementById('cargoRef');
+                ref.innerHTML = cargoShips.map(s =>
+                    `<div class="keybind-row"><span class="keybind-action">${s.name}</span><span class="ship-scu">${s.scu} SCU</span></div>`
+                ).join('');
+            } catch {
+                document.getElementById('cargoRef').innerHTML = '<div class="loading">Failed to load</div>';
+            }
+        }
+
+        // ===== LOAD ORE PRICES (Mining Tab) =====
+        async function loadOrePrices() {
+            try {
+                const data = await uexFetch('commodities/is_mineral/1');
+                const refined = data.filter(c => c.is_refined && c.price_sell > 0)
+                    .sort((a, b) => b.price_sell - a.price_sell);
+                const grid = document.getElementById('oreGrid');
+                grid.innerHTML = refined.map((ore, i) =>
+                    `<div class="ore-card${i < 2 ? ' top' : ''}">
+                        <div class="ore-name">${ore.name}</div>
+                        <div class="ore-value">${ore.price_sell.toLocaleString()} aUEC</div>
+                        <div class="ore-unit">per SCU (sell)</div>
+                    </div>`
+                ).join('');
+                document.getElementById('oreUpdated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+
+                // Hand-mineable gems
+                const harvestable = await uexFetch('commodities/is_harvestable/1');
+                const allGems = [...harvestable.filter(c => c.price_sell > 0)]
+                    .sort((a, b) => b.price_sell - a.price_sell);
+                const gemGrid = document.getElementById('gemGrid');
+                if (allGems.length > 0) {
+                    gemGrid.innerHTML = allGems.map((g, i) =>
+                        `<div class="ore-card${i < 2 ? ' top' : ''}">
+                            <div class="ore-name">${g.name}</div>
+                            <div class="ore-value">${g.price_sell.toLocaleString()} aUEC</div>
+                            <div class="ore-unit">per SCU (sell)</div>
+                        </div>`
+                    ).join('');
+                } else {
+                    gemGrid.innerHTML = '<div style="color:#555;font-size:0.75rem;text-align:center;padding:8px;">No gem data available</div>';
+                }
+            } catch {
+                document.getElementById('oreGrid').innerHTML = '<div class="loading">Failed to load ore prices</div>';
+                document.getElementById('gemGrid').innerHTML = '';
+            }
+        }
+
+        // ===== LOAD SHIPS (Ships Tab) =====
+        let allShips = [];
+        async function loadShips() {
+            try {
+                const data = await uexFetch('vehicles');
+                allShips = data.filter(v => v.is_spaceship).sort((a, b) => a.name.localeCompare(b.name));
+                renderShips(allShips);
+            } catch {
+                document.getElementById('shipList').innerHTML = '<div class="loading">Failed to load ships</div>';
+            }
+        }
+
+        function renderShips(ships) {
+            const list = document.getElementById('shipList');
+            list.innerHTML = ships.slice(0, 50).map(s =>
+                `<div class="ship-row" onclick="openCargoGrid('${s.name.replace(/'/g, "\\'")}')">
+                    <div>
+                        <div class="ship-name">${s.name}</div>
+                        <div class="ship-detail">${s.company_name} · ${s.crew} crew · ${s.length}m</div>
+                    </div>
+                    <span class="ship-scu">${s.scu} SCU</span>
+                </div>`
+            ).join('');
+            if (ships.length > 50) {
+                list.innerHTML += '<div style="color:#555;font-size:0.7rem;text-align:center;padding:8px;">Showing 50 of ' + ships.length + ' — search to filter</div>';
+            }
+        }
+
+        function openCargoGrid(shipName) {
+            const viewer = document.getElementById('cargoViewer');
+            viewer.style.display = 'block';
+            viewer.innerHTML = `
+                <div class="cargo-viewer-bar">
+                    <span class="cargo-viewer-title">📦 Cargo Grid — ${shipName}</span>
+                    <button class="cargo-viewer-close" onclick="closeCargoGrid()">✕ Close</button>
+                </div>
+                <div class="cargo-iframe-wrap">
+                    <iframe src="https://sc-cargo.space/#/v1/viewer" title="Cargo Grid Viewer"></iframe>
+                </div>
+            `;
+            viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeCargoGrid() {
+            const viewer = document.getElementById('cargoViewer');
+            viewer.style.display = 'none';
+            viewer.innerHTML = '';
+        }
+
+        document.getElementById('shipSearch').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            renderShips(allShips.filter(s =>
+                s.name.toLowerCase().includes(q) || s.company_name.toLowerCase().includes(q)
+            ));
+        });
+
+        // ===== KEYBIND SEARCH =====
+        document.getElementById('keybindSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('#keybindList .keybind-row').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(query) ? 'flex' : 'none';
+            });
+            document.querySelectorAll('#keybindList .keybind-category').forEach(cat => {
+                const next = cat.nextElementSibling;
+                cat.style.display = (!query || (next && next.style.display !== 'none')) ? 'block' : 'none';
+            });
+        });
+
+        // ===== STOPWATCH =====
+        let timerInterval = null, timerSeconds = 0, timerRunning = false, isCountdown = false, lapCount = 0;
+        const timerDisplay = document.getElementById('timerDisplay');
+        const btnStart = document.getElementById('btnStart');
+
+        function formatTime(s) {
+            return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+        }
+
+        function updateTimer() {
+            if (isCountdown) {
+                timerSeconds--;
+                if (timerSeconds <= 0) {
+                    timerSeconds = 0; clearInterval(timerInterval); timerRunning = false;
+                    btnStart.textContent = 'Start'; btnStart.className = 'timer-btn start';
+                }
+            } else { timerSeconds++; }
+            timerDisplay.textContent = formatTime(timerSeconds);
+        }
+
+        btnStart.addEventListener('click', () => {
+            if (timerRunning) {
+                clearInterval(timerInterval); timerRunning = false;
+                btnStart.textContent = 'Resume'; btnStart.className = 'timer-btn start';
+            } else {
+                timerInterval = setInterval(updateTimer, 1000); timerRunning = true; isCountdown = false;
+                btnStart.textContent = 'Pause'; btnStart.className = 'timer-btn stop';
+            }
+        });
+
+        document.getElementById('btnLap').addEventListener('click', () => {
+            if (timerRunning) {
+                lapCount++;
+                const item = document.createElement('div');
+                item.className = 'lap-item';
+                item.innerHTML = `<span>Lap ${lapCount}</span><span>${formatTime(timerSeconds)}</span>`;
+                document.getElementById('lapList').prepend(item);
+            }
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            clearInterval(timerInterval); timerRunning = false; isCountdown = false;
+            timerSeconds = 0; lapCount = 0; timerDisplay.textContent = '00:00:00';
+            document.getElementById('lapList').innerHTML = '';
+            btnStart.textContent = 'Start'; btnStart.className = 'timer-btn start';
+        });
+
+        function startCountdown(seconds) {
+            clearInterval(timerInterval); timerSeconds = seconds; isCountdown = true; timerRunning = true;
+            timerDisplay.textContent = formatTime(timerSeconds);
+            timerInterval = setInterval(updateTimer, 1000);
+            btnStart.textContent = 'Pause'; btnStart.className = 'timer-btn stop';
+        }
+
+        // ===== NOTEPAD =====
+        const notepad = document.getElementById('notepad');
+        notepad.value = localStorage.getItem('sc-overlay-notes') || '';
+        notepad.addEventListener('input', () => localStorage.setItem('sc-overlay-notes', notepad.value));
+
+        // ===== CLICK-THROUGH (Electron only) =====
+        if (isElectron) {
+            overlay.onClickThroughChanged((active) => {
+                document.getElementById('ctBadge').classList.toggle('active', active);
+            });
+        }
+
+        // ===== MISSIONS (Blueprint missions from SCMDB 4.7) =====
+        // Shared blueprint reward pools by faction/generator (from SCMDB data)
+        const bpPools = {
+            vaughn: { name: "Vaughn Eliminate Pool", chance: "1 of 12", items: [
+                "Killshot Rifle", "Deadrig Shotgun", "Overlord Arms Supernova", "Overlord Core Supernova",
+                "Overlord Legs Supernova", "Overlord Helmet Supernova", "Piecemeal Armor Arms",
+                "Piecemeal Armor Core", "Piecemeal Armor Legs", "Badami Helmet",
+                "Killshot Rifle Magazine (45 Cap)", "Deadrig Shotgun Magazine (8 cap)"
+            ]},
+            foxwell: { name: "Foxwell Combat Pool", chance: "1 of 10", items: [
+                "Aves Arms", "Aves Core", "Aves Helmet", "Aves Legs",
+                "CBH-3 Arms", "CBH-3 Core", "CBH-3 Helmet", "CBH-3 Legs",
+                "S71 Rifle", "C54 SMG"
+            ]},
+            eckhart: { name: "Eckhart Security Pool", chance: "1 of 10", items: [
+                "Artimex Arms", "Artimex Core", "Artimex Helmet", "Artimex Legs",
+                "Aztalan Arms", "Aztalan Core", "Aztalan Helmet", "Aztalan Legs",
+                "Gallant Rifle", "Custodian SMG"
+            ]},
+            intersec: { name: "InterSec Defense Pool", chance: "1 of 10", items: [
+                "Morozov-SH Arms", "Morozov-SH Core", "Morozov-SH Helmet", "Morozov-SH Legs",
+                "Antium Arms", "Antium Core", "Antium Helmet", "Antium Legs",
+                "Scalpel Sniper Rifle", "Karna Rifle"
+            ]},
+            cfp: { name: "Citizens For Prosperity Pool", chance: "1 of 10", items: [
+                "Inquisitor Arms", "Inquisitor Core", "Inquisitor Helmet", "Inquisitor Legs",
+                "Monde Arms", "Monde Core", "Monde Helmet", "Monde Legs",
+                "P4-AR Rifle", "LH86 Pistol"
+            ]},
+            headhunters: { name: "Headhunters Combat Pool", chance: "1 of 10", items: [
+                "Testudo Arms", "Testudo Core", "Testudo Helmet", "Testudo Legs",
+                "Aril Arms", "Aril Core", "Aril Helmet", "Aril Legs",
+                "FS-9 LMG", "Ravager-212 Shotgun"
+            ]},
+            bounty: { name: "Bounty Hunters Guild Pool", chance: "1 of 8", items: [
+                "Artimex Arms", "Artimex Core", "Artimex Helmet", "Artimex Legs",
+                "P8-AR Rifle", "P6-LR Sniper", "Coda Pistol", "BR-2 Shotgun"
+            ]},
+            bitzeros: { name: "Bit Zeros Delivery Pool", chance: "1 of 6", items: [
+                "Piecemeal Armor Arms", "Piecemeal Armor Core", "Piecemeal Armor Legs",
+                "MacFlex Arms", "MacFlex Core", "MacFlex Helmet"
+            ]},
+        };
+
+        const blueprintMissions = [
+            { name: "Retrieve Additional Smuggler Intel", faction: "InterSec Defense Solutions", system: "Nyx", type: "Investigation", reward: 1205500, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Jorrit Dossier: Project Hyperion", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 677750, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
+            { name: "Recover Vanduul Tech", faction: "InterSec Defense Solutions", system: "Nyx", type: "Collection", reward: 599500, xp: 0, illegal: false, blueprints: "2× VAND", drops: { name: "Fixed Reward", chance: "100%", items: ["2× Vanduul Blueprint (VAND)"] } },
+            { name: "Red Level Contract: Support VIP Clients", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 495250, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Special Purchase Order: Mined Materials", faction: "Shubin Interstellar", system: "Multi", type: "Ship Mining", reward: 498000, xp: 250, illegal: false, blueprints: "ALUM, QUAR, IRON, COPP, TUNG, CORU, TITA, SILI, PRES, HEPH, AGRI, BORA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aluminum (ALUM)","Quartz (QUAR)","Iron (IRON)","Copper (COPP)","Tungsten (TUNG)","Corundum (CORU)","Titanium (TITA)","Silicon (SILI)","Praseodymium (PRES)","Hephaestanite (HEPH)","Agricium (AGRI)","Borase (BORA)"] } },
+            { name: "Patrol Vanduul Hunting Ground", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 359000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Red Level Contract: Secure Threatened Space", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 350000, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Red Level Contract: Save Ships at [LOCATION]", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 333500, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Lrg. Purchase Order: Ship Mined Ore", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 246250, xp: 200, illegal: false, blueprints: "QUAR, COPP, BERY, HEPH, AGRI, BORA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Quartz (QUAR)","Copper (COPP)","Beryl (BERY)","Hephaestanite (HEPH)","Agricium (AGRI)","Borase (BORA)"] } },
+            { name: "Extremely Dangerous Defense", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 241000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
+            { name: "Handle Vanduul Attack on Ship", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 241000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Hit on XenoThreat command", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 230000, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Orange Level Contract: Protect Our Client's Interests", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 222500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Eliminate Vanduul Ship", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 222500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Vital Resources Needed For Research", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 216500, xp: 100, illegal: false, blueprints: "CARI, SALD, JACL", drops: { name: "Fixed Reward", chance: "100%", items: ["Carinite (CARI)","Saldynium (SALD)","Janalite (JACL)"] } },
+            { name: "Patrol to Prevent Possible Attack", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 206500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Mjr. Purchase Order: Ship Mined Ore (RICC/STIL)", faction: "Shubin Interstellar", system: "Pyro", type: "Ship Mining", reward: 206000, xp: 250, illegal: false, blueprints: "RICC / STIL", drops: { name: "Ore Blueprints", chance: "100%", items: ["Riccite (RICC)","Stileron (STIL)"] } },
+            { name: "Red Level Contract: Surprise Attack", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 200000, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Red Level Contract: High-Risk Security Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 200000, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Lrg. Purchase Order: Ship Mined Ore (TORI/BEXA)", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 193250, xp: 250, illegal: false, blueprints: "TORI, BEXA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Torite (TORI)","Bexalite (BEXA)"] } },
+            { name: "Mjr. Purchase Order: Ship Mined Ore (SAVR)", faction: "Shubin Interstellar", system: "Pyro", type: "Ship Mining", reward: 199250, xp: 250, illegal: false, blueprints: "SAVR", drops: { name: "Ore Blueprints", chance: "100%", items: ["Savrilium (SAVR)"] } },
+            { name: "Mjr. Purchase Order: Ship Mined Ore (QUAN)", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 186500, xp: 250, illegal: false, blueprints: "QUAN", drops: { name: "Ore Blueprints", chance: "100%", items: ["Quantanium (QUAN)"] } },
+            { name: "Wanted: [TARGET]", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 181250, xp: 600, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Pilot Under Fire From Vanduul", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 173000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Neutralize Vanduul Target", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 173000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Need multiple CFP outposts retaken", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 156500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Paid Target in CFP", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 156750, xp: 1200, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Sweep and clear some CFP haunts", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 151500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Red Level Contract: Recoup Stolen Cargo", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 151500, xp: 0, illegal: false, blueprints: "2× ALUM", drops: { name: "Fixed Reward", chance: "100%", items: ["2× Aluminum (ALUM)"] } },
+            { name: "Taking XenoThreat Turf", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 151500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Respond to Distress Beacon", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 150500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Stop Deadly Ship Attack", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 150500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
+            { name: "Preemptive Strike On [TARGET]", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 148250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Protect Vital Asset", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 148250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Destroy Headhunter Stolen Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 146500, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Destroy Outlaw Data Servers", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 143500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Destroy XenoThreat Data Servers", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 143500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Patrol Dangerous Sector", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 140000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Orange Level Contract: Potential Security Threat", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 135000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Red Level Contract: Ship Under Attack", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 132000, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Drop a XenoThreat", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Hit a CFP Complex", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Reputation Management", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Reclaiming Outposts from XenoThreat", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 129500, xp: 450, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Time to roll on CFP", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 127750, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Destroy Dangerous Drugs", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 125250, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Recover Vanduul Corpses", faction: "InterSec Defense Solutions", system: "Nyx", type: "Collection", reward: 125000, xp: 0, illegal: false, blueprints: "CRYO", drops: { name: "Fixed Reward", chance: "100%", items: ["Cryogenics Blueprint (CRYO)"] } },
+            { name: "Turf War", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 120750, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Red Level Contract: Ambush Attack Squad", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 120000, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Red Level Contract: Retrieve Cargo Haul", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 119500, xp: 0, illegal: false, blueprints: "CARB", drops: { name: "Fixed Reward", chance: "100%", items: ["Carbon (CARB)"] } },
+            { name: "A little retaliation", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 117250, xp: 375, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Reclaiming Clusters from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 117250, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Retaking Outposts from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 113500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Neutralize UEE Threat: [TARGET]", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 112000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Operative Extraction", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 112000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Orange Level Contract: Ship Protection", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 109750, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Red Level Contract: Recoup Stolen Cargo Haul", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 108250, xp: 0, illegal: false, blueprints: "AGRI", drops: { name: "Fixed Reward", chance: "100%", items: ["Agricium (AGRI)"] } },
+            { name: "Need Resource for Research (CARI)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 105500, xp: 150, illegal: false, blueprints: "CARI", drops: { name: "Fixed Reward", chance: "100%", items: ["Carinite (CARI)"] } },
+            { name: "Outlaw attack at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Headhunter attack on [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Help defend [LOCATION] from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "High-Risk Ship Encounter", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 105250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
+            { name: "Destroy XenoThreat Logistic Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 101000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Destroy Illegal Drugs", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 101750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "[LOCATION] needs help", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 101000, xp: 850, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Taking back from the Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 97750, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Defenders needed against Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 97750, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Jorrit Dossier: Updated Power Usage Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 91500, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
+            { name: "Bounty Assignment: [TARGET] (HRT)", faction: "Northrock Service Group", system: "Stanton", type: "Bounty Hunter", reward: 87500, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
+            { name: "Hit XenoThreat at [LOCATION]", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 86750, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Terrorist [TARGET] to be Neutralized", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "New Defense Contract: [TARGET] Elimination", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Defend InterSec Operative", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
+            { name: "Reclaim XenoThreat Outpost", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 86000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Our Version of The Truth", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 78000, xp: 250, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
+            { name: "Orange Level Contract: [SHIP] Needs Assistance", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 78250, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Protecting outpost from XenoThreat", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 78250, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Lrg. Purchase Order: Hand Mined Materials (APHO/HADA)", faction: "Shubin Interstellar", system: "Pyro", type: "Hand Mining", reward: 75750, xp: 150, illegal: false, blueprints: "APHO, HADA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aphorite (APHO)","Hadanite (HADA)"] } },
+            { name: "Orange Level Contract: Return the Favor", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 75000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Orange Level Contract: Security Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 74000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Jorrit Dossier: Updated Seismic Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 73250, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
+            { name: "[LOCATION] needs assistance", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 73250, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Eradicate All Traces of Headhunter Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 72750, xp: 1550, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Stop Attack on High-Profile Client", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 72750, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
+            { name: "They Will Be Missed", faction: "Vaughn", system: "Stanton", type: "Mercenary", reward: 70250, xp: 4000, illegal: true, blueprints: "Random", drops: bpPools.vaughn },
+            { name: "Defend [LOCATION] from Outlaws", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 68500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Yellow Level Contract: Defend [LOCATION]", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 67750, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Call for Help: [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 66000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Knock Out New Drug Op", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 63750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Plug a traitor", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 63750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Precision Strike on [TARGET]", faction: "Foxwell Enforcement", system: "Stanton", type: "Bounty Hunter", reward: 62750, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Driving CFP out", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "[LOCATION] has been greenlit", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Taking out some XenoThreat trash", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Destroy XenoThreat Logistic Data (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 60000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Eliminate Fuel Stores", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 58000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Track Down [TARGET]", faction: "Foxwell Enforcement", system: "Stanton", type: "Bounty Hunter", reward: 56750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Kill the king", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 56750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Reclaim Headhunter Outpost", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 56500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Defend [LOCATION] from Outlaws (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 56500, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Carefully Clear Site", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 55000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Pilot Seeking Combat Support", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 55000, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Support Client Under Attack", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 55000, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
+            { name: "Halt Narcotics Operation", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Take Outlaws at [LOCATION] Offline", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Jorrit Dossier: Updated Security Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 55000, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
+            { name: "Destroy Headhunter Stolen Data (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Disable Outlaw Stronghold at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 54250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Yellow Level Contract: Ship Under Attack", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 53000, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Need Resource for Research (SALD)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 52750, xp: 100, illegal: false, blueprints: "SALD", drops: { name: "Fixed Reward", chance: "100%", items: ["Saldynium (SALD)"] } },
+            { name: "Need Resource for Research (JACL)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 52750, xp: 100, illegal: false, blueprints: "JACL", drops: { name: "Fixed Reward", chance: "100%", items: ["Janalite (JACL)"] } },
+            { name: "Yellow Level Contract: Security Sweep", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 50000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Bounty Assignment: [TARGET] (MRT)", faction: "Northrock Service Group", system: "Stanton", type: "Bounty Hunter", reward: 44500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
+            { name: "Still Looking for Work?", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 44750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Help Protect Site", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 44750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Verified Bounty: [TARGET] (MRT)", faction: "Bounty Hunters Guild", system: "Nyx", type: "Bounty Hunter", reward: 44500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
+            { name: "Too Smart For Our Own Good", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 41750, xp: 150, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
+            { name: "Yellow Level Contract: Stand Up to Aggressors", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 40250, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Orange Level Contract: Spring a Trap", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 40000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Reputation Management (small)", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 39250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Lrg. Purchase Order: Hand Mined Materials (APHO)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 38000, xp: 150, illegal: false, blueprints: "APHO", drops: { name: "Fixed Reward", chance: "100%", items: ["Aphorite (APHO)"] } },
+            { name: "Lrg. Purchase Order: Hand Mined Materials (HADA)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 42250, xp: 150, illegal: false, blueprints: "HADA", drops: { name: "Fixed Reward", chance: "100%", items: ["Hadanite (HADA)"] } },
+            { name: "Lrg. Purchase Order: Hand Mined Materials (DOLI)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 38000, xp: 150, illegal: false, blueprints: "DOLI", drops: { name: "Fixed Reward", chance: "100%", items: ["Dolivine (DOLI)"] } },
+            { name: "Hitting a CFP site", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 37250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Need a hitter", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 37250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Pilot in Distress", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 36500, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Jorrit Dossier: Updated Energy Anomaly Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 36500, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
+            { name: "Getting To the Bottom of It", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 35250, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
+            { name: "Disable Outlaw Stronghold at [LOCATION] (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 33750, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Need someone taken out", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 33000, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Data Transfer", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 32500, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
+            { name: "Pick Up, Put Down", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 32500, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
+            { name: "Sweep and Clear Location", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Yellow Level Contract: Clear Out PAF", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Yellow Level Contract: Merc Work", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Yellow Level Contract: Routine Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 30000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Yellow Level Contract: Surprise Strike", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 30000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "XS Purchase Order: Ship Mined Ore", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 28750, xp: 100, illegal: false, blueprints: "ALUM, TUNG, CORU", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aluminum (ALUM)","Tungsten (TUNG)","Corundum (CORU)"] } },
+            { name: "Assistance needed at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 26250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
+            { name: "Deep space hit", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 24250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
+            { name: "Yellow Level Contract: Ambush An Amateur", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 20000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+            { name: "Verified Bounty: [TARGET] (LRT)", faction: "Bounty Hunters Guild", system: "Nyx", type: "Bounty Hunter", reward: 19000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
+            { name: "Foxwell Enforcement: Destroy Satellite", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 17500, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
+        ];
+
+        let currentSystemFilter = 'all';
+
+        function renderMissions(filter = '', system = 'all') {
+            const list = document.getElementById('missionList');
+            const q = filter.toLowerCase();
+            const filtered = blueprintMissions.filter(m => {
+                const dropsMatch = m.drops && m.drops.items.some(item => item.toLowerCase().includes(q));
+                const matchSearch = !q || m.name.toLowerCase().includes(q) || m.faction.toLowerCase().includes(q) || m.type.toLowerCase().includes(q) || m.blueprints.toLowerCase().includes(q) || dropsMatch;
+                const matchSystem = system === 'all' || m.system === system;
+                return matchSearch && matchSystem;
+            }).sort((a, b) => b.reward - a.reward);
+
+            document.getElementById('missionCount').textContent = filtered.length + ' blueprint missions found';
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div style="text-align:center;color:#9bc3d1;padding:20px;font-size:0.8rem;">No missions match your search.</div>';
+                return;
+            }
+
+            list.innerHTML = filtered.map((m, i) => {
+                const dropsHtml = m.drops ? `
+                    <div class="drops-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+                        <span class="arrow">▶</span> ${m.drops.items.length} blueprint${m.drops.items.length > 1 ? 's' : ''} · ${m.drops.chance}
+                    </div>
+                    <div class="drops-list">
+                        <div class="drop-pool-info">📦 ${m.drops.name}</div>
+                        ${m.drops.items.map(item => `<div class="drop-item"><span class="drop-icon">🔧</span><span class="drop-name">${item}</span></div>`).join('')}
+                    </div>` : '';
+                return `
+                <div class="mission-card${m.illegal ? ' illegal' : ''}">
+                    <div class="mission-name">${m.name}</div>
+                    <div class="mission-meta">
+                        <span class="mission-tag tag-faction">${m.faction}</span>
+                        <span class="mission-tag tag-system">${m.system}</span>
+                        <span class="mission-tag tag-type">${m.type}</span>
+                        <span class="mission-tag tag-blueprint">🔧 ${m.blueprints}</span>
+                        ${m.illegal ? '<span class="mission-tag tag-illegal">ILLEGAL</span>' : ''}
+                    </div>
+                    <div class="mission-reward">
+                        <span class="mission-uec">${m.reward > 0 ? m.reward.toLocaleString() + ' aUEC' : '—'}</span>
+                        <span class="mission-xp">${m.xp > 0 ? m.xp.toLocaleString() + ' XP' : ''}</span>
+                    </div>
+                    ${dropsHtml}
+                </div>`;
+            }).join('');
+        }
+
+        document.getElementById('missionSearch').addEventListener('input', (e) => {
+            renderMissions(e.target.value, currentSystemFilter);
+        });
+
+        document.querySelectorAll('.mission-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mission-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSystemFilter = btn.dataset.system;
+                renderMissions(document.getElementById('missionSearch').value, currentSystemFilter);
+            });
+        });
+
+        renderMissions();
+
+        // ===== QUOTE ROTATION =====
+        const scQuotes = [
+            "Per aspera ad astra",
+            "In the void, we find purpose",
+            "The stars are ours to claim",
+            "Fortune favors the bold",
+            "Ad infinitum, citizen",
+            "Space is disease and danger",
+            "Trust your instruments",
+            "Fly safe, citizen",
+            "The 'verse provides",
+            "Keep your shields up",
+        ];
+        document.getElementById('scQuote').textContent = scQuotes[Math.floor(Math.random() * scQuotes.length)];
+
+        // ===== INIT =====
+        document.addEventListener('DOMContentLoaded', () => {
+            checkStatus();
+            loadCommodities();
+            loadCargoShips();
+            loadOrePrices();
+            loadShips();
+        });
+    </script>
+</body>
+</html>

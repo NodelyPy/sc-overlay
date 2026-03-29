@@ -1,0 +1,22 @@
+{
+    "name": "NodelyPy SC Overlay",
+    "short_name": "NodelyPy",
+    "description": "Star Citizen companion overlay — timers, trade, mining, ships, missions & more",
+    "start_url": "./overlay.html",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#111f29",
+    "theme_color": "#111f29",
+    "icons": [
+        {
+            "src": "icon-192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "icon-512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}
