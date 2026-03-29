@@ -7,7 +7,6 @@
   </defs>
   <rect width="512" height="512" rx="92" fill="url(#bg)"/>
   <rect x="10" y="10" width="492" height="492" rx="82" fill="none" stroke="rgba(53,182,236,0.35)" stroke-width="8"/>
-  <text x="192" y="290" font-family="Segoe UI, sans-serif" font-weight="800" font-size="143" fill="#ebebeb">N</text>
-  <text x="285" y="290" font-family="Segoe UI, sans-serif" font-weight="800" font-size="143" fill="#00b4d8">P</text>
-  <text x="256" y="405" font-family="Segoe UI, sans-serif" font-weight="600" font-size="41" fill="#9bc3d1" text-anchor="middle">SC OVERLAY</text>
+  <text x="128" y="315" font-family="Segoe UI, sans-serif" font-weight="800" font-size="215" fill="#ebebeb">N</text>
+  <text x="263" y="315" font-family="Segoe UI, sans-serif" font-weight="800" font-size="215" fill="#00b4d8">P</text>
 </svg>

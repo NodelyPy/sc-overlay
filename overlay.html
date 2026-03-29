@@ -68,9 +68,18 @@
             display: flex; align-items: center; gap: 8px;
             padding: 6px 14px; font-size: 0.7rem; color: #9bc3d1;
             border-bottom: 1px solid rgba(28, 77, 110, 0.2); flex-shrink: 0;
+            background: linear-gradient(90deg, rgba(28, 77, 110, 0.06), transparent, rgba(28, 77, 110, 0.06));
         }
-        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #57f287; animation: pulse 2s infinite; }
-        .status-dot.off { background: #ed4245; animation: none; }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: #57f287;
+            animation: statusPulse 2s infinite;
+            box-shadow: 0 0 6px rgba(87, 242, 135, 0.5);
+        }
+        .status-dot.off { background: #ed4245; animation: none; box-shadow: 0 0 6px rgba(237, 66, 69, 0.5); }
+        @keyframes statusPulse {
+            0%, 100% { box-shadow: 0 0 4px rgba(87, 242, 135, 0.4); }
+            50% { box-shadow: 0 0 10px rgba(87, 242, 135, 0.7); }
+        }
         .click-through-badge {
             margin-left: auto; padding: 2px 8px; border-radius: 4px;
             background: rgba(254, 231, 92, 0.15); color: #fee75c;
@@ -84,26 +93,54 @@
             border-bottom: 1px solid rgba(28, 77, 110, 0.2); flex-shrink: 0;
         }
         .tab {
-            padding: 6px 12px; border-radius: 8px; font-size: 0.75rem;
+            padding: 6px 12px; border-radius: 8px 8px 0 0; font-size: 0.75rem;
             font-weight: 600; cursor: pointer; color: #9bc3d1;
-            background: transparent; border: none; transition: background 0.2s, color 0.2s;
+            background: transparent; border: none;
+            transition: color 0.3s, box-shadow 0.3s;
+            position: relative;
         }
-        .tab:hover { background: rgba(28, 77, 110, 0.2); color: #ebebeb; }
-        .tab.active { background: rgba(53, 182, 236, 0.15); color: #35b6ec; }
+        .tab::after {
+            content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%;
+            height: 2px; background: transparent; border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .tab:hover { color: #ebebeb; }
+        .tab:hover::after { background: rgba(53, 182, 236, 0.3); left: 10%; right: 10%; }
+        .tab.active { color: #35b6ec; }
+        .tab.active::after {
+            background: #35b6ec; left: 10%; right: 10%;
+            box-shadow: 0 0 8px rgba(53, 182, 236, 0.6), 0 0 20px rgba(53, 182, 236, 0.2);
+        }
 
         /* ===== PANELS ===== */
-        .panels { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px; }
+        .panels-wrap { flex: 1; position: relative; overflow: hidden; }
+        .panels-wrap::before, .panels-wrap::after {
+            content: ''; position: absolute; left: 0; right: 0; height: 20px;
+            z-index: 2; pointer-events: none;
+        }
+        .panels-wrap::before { top: 0; background: linear-gradient(to bottom, rgba(17, 31, 41, 1), transparent); }
+        .panels-wrap::after { bottom: 0; background: linear-gradient(to top, rgba(17, 31, 41, 1), transparent); }
+        .panels { height: 100%; overflow-y: auto; overflow-x: hidden; padding: 12px; }
         .panels::-webkit-scrollbar { width: 4px; }
         .panels::-webkit-scrollbar-track { background: transparent; }
         .panels::-webkit-scrollbar-thumb { background: rgba(53, 182, 236, 0.15); border-radius: 4px; }
-        .panel { display: none; }
+        .panel { display: none; animation: panelIn 0.3s ease; }
         .panel.active { display: block; }
+        @keyframes panelIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
         /* ===== SHARED STYLES ===== */
         .card {
             background: rgba(28, 77, 110, 0.08);
             border: 1px solid rgba(28, 77, 110, 0.3);
             border-radius: 12px; padding: 12px; margin-bottom: 8px;
+            transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(53, 182, 236, 0.3);
+            box-shadow: 0 2px 12px rgba(53, 182, 236, 0.08);
         }
         .card-title {
             font-size: 0.8rem; font-weight: 700; color: #ebebeb;
@@ -120,6 +157,15 @@
             background: linear-gradient(135deg, #35b6ec, #57f287);
             -webkit-background-clip: text; background-clip: text;
             -webkit-text-fill-color: transparent; color: transparent;
+            transition: filter 0.3s;
+        }
+        .timer-display.running {
+            animation: timerPulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 12px rgba(87, 242, 135, 0.4));
+        }
+        @keyframes timerPulse {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(87, 242, 135, 0.3)); }
+            50% { filter: drop-shadow(0 0 20px rgba(53, 182, 236, 0.5)); }
         }
         .timer-btns { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
         .timer-btn {
@@ -172,9 +218,13 @@
             background: rgba(28, 77, 110, 0.08);
             border: 1px solid rgba(28, 77, 110, 0.3);
             border-radius: 10px; padding: 10px; text-align: center;
-            transition: border-color 0.2s;
+            transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
         }
-        .ore-card:hover { border-color: rgba(53, 182, 236, 0.25); }
+        .ore-card:hover {
+            border-color: rgba(53, 182, 236, 0.3);
+            box-shadow: 0 2px 10px rgba(53, 182, 236, 0.1);
+            transform: translateY(-1px);
+        }
         .ore-name { font-size: 0.78rem; font-weight: 700; color: #ebebeb; }
         .ore-value { font-size: 0.9rem; font-weight: 800; color: #57f287; margin-top: 2px; }
         .ore-unit { font-size: 0.65rem; color: #9bc3d1; }
@@ -201,8 +251,15 @@
             border: 1px solid rgba(53, 182, 236, 0.25); border-radius: 5px;
             color: #35b6ec; font-size: 0.72rem; font-weight: 600;
         }
-        .ship-row { cursor: pointer; transition: background 0.2s; border-radius: 6px; padding: 8px 6px; }
-        .ship-row:hover { background: rgba(53, 182, 236, 0.08); }
+        .ship-row {
+            cursor: pointer; border-radius: 6px; padding: 8px 6px;
+            transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+        }
+        .ship-row:hover {
+            background: rgba(53, 182, 236, 0.08);
+            box-shadow: inset 2px 0 0 #35b6ec;
+            transform: translateX(2px);
+        }
         .cargo-viewer-bar {
             display: flex; align-items: center; justify-content: space-between;
             padding: 8px 10px; margin-bottom: 8px; border-radius: 8px;
@@ -293,18 +350,25 @@
         .mission-card {
             background: rgba(28, 77, 110, 0.08); border: 1px solid rgba(28, 77, 110, 0.3);
             border-left: 3px solid #35b6ec; border-radius: 8px; padding: 10px 12px;
-            margin-bottom: 6px; transition: border-color 0.2s;
+            margin-bottom: 6px; transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
         }
-        .mission-card:hover { border-color: rgba(53, 182, 236, 0.5); }
+        .mission-card:hover {
+            border-color: rgba(53, 182, 236, 0.5);
+            box-shadow: 0 2px 12px rgba(53, 182, 236, 0.08);
+            transform: translateX(2px);
+        }
         .mission-card.illegal { border-left-color: #ed4245; }
         .mission-name { font-size: 0.82rem; font-weight: 700; color: #ebebeb; margin-bottom: 4px; }
         .mission-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-        .mission-tag { padding: 1px 6px; border-radius: 4px; font-size: 0.62rem; font-weight: 600; }
-        .tag-faction { background: rgba(53, 182, 236, 0.12); color: #35b6ec; }
-        .tag-system { background: rgba(87, 242, 135, 0.12); color: #57f287; }
-        .tag-type { background: rgba(155, 195, 209, 0.12); color: #9bc3d1; }
-        .tag-illegal { background: rgba(237, 66, 69, 0.12); color: #ed4245; }
-        .tag-blueprint { background: rgba(254, 231, 92, 0.12); color: #fee75c; }
+        .mission-tag {
+            padding: 2px 8px; border-radius: 6px; font-size: 0.62rem; font-weight: 600;
+            border: 1px solid transparent; letter-spacing: 0.2px;
+        }
+        .tag-faction { background: rgba(53, 182, 236, 0.12); color: #35b6ec; border-color: rgba(53, 182, 236, 0.15); }
+        .tag-system { background: rgba(87, 242, 135, 0.12); color: #57f287; border-color: rgba(87, 242, 135, 0.15); }
+        .tag-type { background: rgba(155, 195, 209, 0.12); color: #9bc3d1; border-color: rgba(155, 195, 209, 0.15); }
+        .tag-illegal { background: rgba(237, 66, 69, 0.12); color: #ed4245; border-color: rgba(237, 66, 69, 0.15); }
+        .tag-blueprint { background: rgba(254, 231, 92, 0.12); color: #fee75c; border-color: rgba(254, 231, 92, 0.15); }
         .mission-reward { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
         .mission-uec { color: #57f287; font-weight: 700; }
         .mission-xp { color: #9bc3d1; }
@@ -337,6 +401,12 @@
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+        /* ===== GLOW DIVIDERS ===== */
+        .glow-divider {
+            height: 1px; margin: 12px 0; border: none;
+            background: linear-gradient(90deg, transparent, rgba(53, 182, 236, 0.3), transparent);
+        }
+
         /* PWA / Mobile adjustments */
         body:not(.electron) .titlebar { -webkit-app-region: unset; }
         body:not(.electron) .titlebar-btns { display: none; }
@@ -355,9 +425,10 @@
         body:not(.electron) .mission-search { user-select: text; -webkit-user-select: text; }
 
         @media (max-width: 480px) {
-            .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+            .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; justify-content: center; }
             .tabs::-webkit-scrollbar { display: none; }
-            .tab { white-space: nowrap; padding: 6px 8px; font-size: 0.68rem; }
+            .tab { white-space: nowrap; padding: 8px 10px; font-size: 0.85rem; }
+            .tab .tab-label { display: none; }
             .ore-grid { grid-template-columns: 1fr 1fr; }
             .timer-display { font-size: 2.2rem; }
             .trade-row { flex-direction: column; }
@@ -384,15 +455,16 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" data-tab="timer">⏱ Timer</button>
-            <button class="tab" data-tab="trade">💰 Trade</button>
-            <button class="tab" data-tab="mining">⛏ Mining</button>
-            <button class="tab" data-tab="ships">🚀 Ships</button>
-            <button class="tab" data-tab="keys">⌨ Keys</button>
-            <button class="tab" data-tab="notes">📝 Notes</button>
-            <button class="tab" data-tab="missions">📋 Missions</button>
+            <button class="tab active" data-tab="timer">⏱ <span class="tab-label">Timer</span></button>
+            <button class="tab" data-tab="trade">💰 <span class="tab-label">Trade</span></button>
+            <button class="tab" data-tab="mining">⛏ <span class="tab-label">Mining</span></button>
+            <button class="tab" data-tab="ships">🚀 <span class="tab-label">Ships</span></button>
+            <button class="tab" data-tab="keys">⌨ <span class="tab-label">Keys</span></button>
+            <button class="tab" data-tab="notes">📝 <span class="tab-label">Notes</span></button>
+            <button class="tab" data-tab="missions">📋 <span class="tab-label">Missions</span></button>
         </div>
 
+        <div class="panels-wrap">
         <div class="panels">
 
             <!-- TIMER -->
@@ -406,6 +478,7 @@
                     </div>
                     <div class="laps" id="lapList"></div>
                 </div>
+                <hr class="glow-divider">
                 <div class="card">
                     <div class="card-title">⏰ Quick Timers</div>
                     <div class="timer-btns">
@@ -436,6 +509,7 @@
                         <div class="trade-label">Estimated Profit</div>
                     </div>
                 </div>
+                <hr class="glow-divider">
                 <div class="card" id="tradeRefCard">
                     <div class="card-title">📊 Cargo Capacity</div>
                     <div id="cargoRef"><div class="loading">Loading ships</div></div>
@@ -521,6 +595,7 @@
                 <div id="missionList"></div>
             </div>
 
+        </div>
         </div>
 
         <div class="hotkeys-footer">
@@ -753,6 +828,7 @@
                 if (timerSeconds <= 0) {
                     timerSeconds = 0; clearInterval(timerInterval); timerRunning = false;
                     btnStart.textContent = 'Start'; btnStart.className = 'timer-btn start';
+                    timerDisplay.classList.remove('running');
                 }
             } else { timerSeconds++; }
             timerDisplay.textContent = formatTime(timerSeconds);
@@ -762,9 +838,11 @@
             if (timerRunning) {
                 clearInterval(timerInterval); timerRunning = false;
                 btnStart.textContent = 'Resume'; btnStart.className = 'timer-btn start';
+                timerDisplay.classList.remove('running');
             } else {
                 timerInterval = setInterval(updateTimer, 1000); timerRunning = true; isCountdown = false;
                 btnStart.textContent = 'Pause'; btnStart.className = 'timer-btn stop';
+                timerDisplay.classList.add('running');
             }
         });
 
@@ -783,6 +861,7 @@
             timerSeconds = 0; lapCount = 0; timerDisplay.textContent = '00:00:00';
             document.getElementById('lapList').innerHTML = '';
             btnStart.textContent = 'Start'; btnStart.className = 'timer-btn start';
+            timerDisplay.classList.remove('running');
         });
 
         function startCountdown(seconds) {
@@ -790,6 +869,7 @@
             timerDisplay.textContent = formatTime(timerSeconds);
             timerInterval = setInterval(updateTimer, 1000);
             btnStart.textContent = 'Pause'; btnStart.className = 'timer-btn stop';
+            timerDisplay.classList.add('running');
         }
 
         // ===== NOTEPAD =====
