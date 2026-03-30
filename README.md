@@ -39,7 +39,8 @@ Live at: **[nodelypy.github.io/sc-overlay](https://nodelypy.github.io/sc-overlay
 ### 👤 Player Lookup
 - Search any Star Citizen player by their handle
 - Shows profile avatar, display name, enlistment date, badge, languages
-- Displays their main organization with clickable link to org details
+- Displays full main organization details inline: banner, logo, member count, archetype, commitment, focus areas
+- Click org name to jump to full Org Lookup with member list
 
 ### 🏛 Org Lookup
 - Search any organization by its SID (Spectrum ID)
@@ -50,10 +51,11 @@ Live at: **[nodelypy.github.io/sc-overlay](https://nodelypy.github.io/sc-overlay
 
 ### 🔨 Crafting
 - Live blueprint data from scunpacked-data (StarCitizenWiki community extract)
-- Searchable, filterable list of all craftable items (armor, weapons, ammo, attachments)
-- Filters by type (Armor/Weapons/Ammo) and subtype (Light/Medium/Heavy)
+- Searchable, filterable list of all craftable items (1,000+ blueprints)
+- Filters by type (Armor/Weapons/Attachments) and subtype (Light/Medium/Heavy)
 - Each blueprint shows output item, grade, craft time, and full ingredient list with SCU quantities
-- Indicates whether a blueprint is available by default or as a mission reward
+- Shows where each blueprint is obtained — default unlock or specific mission reward sources (faction and mission type)
+- Searchable by item name, type, ingredient, or mission source faction
 - Data fetched live and cached per session for fast browsing
 
 ---

@@ -715,9 +715,9 @@
                 <input type="text" class="mission-search" id="craftSearch" placeholder="Search blueprints...">
                 <div class="mission-filters" id="craftTypeFilters">
                     <button class="mission-filter active" data-craft-type="all">All</button>
-                    <button class="mission-filter" data-craft-type="Armor">Armor</button>
-                    <button class="mission-filter" data-craft-type="Weapon">Weapons</button>
-                    <button class="mission-filter" data-craft-type="AmmoBox">Ammo</button>
+                    <button class="mission-filter" data-craft-type="Char_Armor">Armor</button>
+                    <button class="mission-filter" data-craft-type="WeaponPersonal">Weapons</button>
+                    <button class="mission-filter" data-craft-type="WeaponAttachment">Attachments</button>
                 </div>
                 <div class="mission-filters" id="craftSubFilters">
                     <button class="mission-filter active" data-craft-sub="all">All Grades</button>
@@ -1066,6 +1066,37 @@
             return `${s}s`;
         }
 
+        function parsePoolKey(key) {
+            if (!key) return 'Mission Reward';
+            const clean = key.replace('BP_MISSIONREWARD_', '');
+            const factionMap = [
+                ['FoxwellEnforcement', 'Foxwell'], ['Foxwell', 'Foxwell'],
+                ['HeadHunters', 'Headhunters'], ['InterSec', 'InterSec'],
+                ['CitizensForProsperity', 'CFP'], ['CFP', 'CFP'],
+                ['BountyHuntersGuild', 'BHG'], ['BHG', 'BHG'],
+                ['BitZeros', 'Bit Zeros'], ['VaughnGenerator', 'Vaughn'],
+                ['NorthRock', 'Northrock'], ['NorthRockFPSKill', 'Northrock'],
+                ['Rayari', 'Rayari'], ['Shubin', 'Shubin'],
+                ['IDS', 'InterSec'], ['RDC', 'RDC'], ['ASD', 'ASD'],
+            ];
+            for (const [prefix, faction] of factionMap) {
+                if (clean.startsWith(prefix)) {
+                    let rest = clean.slice(prefix.length).replace(/^_/, '');
+                    rest = rest.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .replace(/Eliminate Specific/g, 'Bounty').replace(/Eliminate ALL/g, 'Clear Out')
+                        .replace(/EliminateBoss/g, 'Boss Bounty').replace(/EliminateSpecific/g, 'Bounty')
+                        .replace(/FPS Mining/g, 'Hand Mining').replace(/Ship Mining/g, 'Ship Mining')
+                        .replace(/Resource Gathering/g, '').replace(/Mercenary FPS /g, '')
+                        .replace(/Region ?AB/g, '(A-B)').replace(/Region ?CD/g, '(C-D)')
+                        .replace(/Region ?C$/g, '(C)').replace(/Region ?D$/g, '(D)')
+                        .replace(/Stanton$/g, '(Stanton)').replace(/Pyro$/g, '(Pyro)')
+                        .replace(/PyroNyx$/g, '(Pyro/Nyx)').replace(/\s+/g, ' ').trim();
+                    return rest ? `${faction}: ${rest}` : faction;
+                }
+            }
+            return clean.replace(/_/g, ' ');
+        }
+
         function renderCrafting() {
             if (!allBlueprints) return;
             const list = document.getElementById('craftList');
@@ -1073,7 +1104,7 @@
 
             const filtered = allBlueprints.filter(bp => {
                 const out = bp.output || {};
-                const matchType = craftTypeFilter === 'all' || (out.type || '').toLowerCase().includes(craftTypeFilter.toLowerCase());
+                const matchType = craftTypeFilter === 'all' || (out.type || '').startsWith(craftTypeFilter);
                 const matchSub = craftSubFilter === 'all' || (out.subType || out.subtype || '').toLowerCase() === craftSubFilter.toLowerCase();
                 if (!matchType || !matchSub) return false;
                 if (!q) return true;
@@ -1085,7 +1116,8 @@
                         (g.children || []).map(r => (r.name || '').toLowerCase())
                     )
                 );
-                return name.includes(q) || type.includes(q) || sub.includes(q) || ingredients.some(i => i.includes(q));
+                const sources = (bp.availability?.reward_pools || []).map(p => parsePoolKey(p.key).toLowerCase()).join(' ');
+                return name.includes(q) || type.includes(q) || sub.includes(q) || ingredients.some(i => i.includes(q)) || sources.includes(q);
             });
 
             document.getElementById('craftCount').textContent = filtered.length + ' blueprints found';
@@ -1111,14 +1143,23 @@
                 const isDefault = avail.default === true;
                 const rewardPools = avail.reward_pools || avail.rewardPools || [];
                 const availTag = isDefault
-                    ? '<span class="mission-tag tag-system">Default</span>'
+                    ? '<span class="mission-tag tag-system">Default Blueprint</span>'
                     : rewardPools.length > 0
                         ? '<span class="mission-tag tag-blueprint">Mission Reward</span>'
-                        : '<span class="mission-tag tag-type">Unknown</span>';
+                        : '<span class="mission-tag tag-type">Unknown Source</span>';
+
+                const sourceList = rewardPools.map(p => parsePoolKey(p.key));
+                const sourceHtml = rewardPools.length > 0
+                    ? `<div style="font-size:0.65rem;color:#9bc3d1;padding:4px 0;border-top:1px solid rgba(28,77,110,0.15);margin-top:6px;">
+                        <span style="color:#fee75c;"><i class="fa-solid fa-location-dot"></i></span> ${sourceList.join(' · ')}
+                       </div>`
+                    : isDefault
+                        ? `<div style="font-size:0.65rem;color:#57f287;padding:4px 0;border-top:1px solid rgba(28,77,110,0.15);margin-top:6px;"><i class="fa-solid fa-unlock"></i> Default — no mission required</div>`
+                        : '';
 
                 const ingredientHtml = ingredients.length > 0 ? `
                     <div class="drops-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-                        <span class="arrow">▶</span> ${ingredients.length} ingredient${ingredients.length > 1 ? 's' : ''}
+                        <span class="arrow">▶</span> <i class="fa-solid fa-cubes" style="font-size:0.6rem;"></i> ${ingredients.length} ingredient${ingredients.length > 1 ? 's' : ''}
                     </div>
                     <div class="drops-list">
                         ${ingredients.map(i => `<div class="drop-item"><span class="drop-icon">📦</span><span class="drop-name">${i.name}</span><span style="margin-left:auto;color:#57f287;font-size:0.65rem;font-weight:600;">${i.qty} SCU</span></div>`).join('')}
@@ -1128,7 +1169,7 @@
                 <div class="mission-card">
                     <div class="mission-name">${out.name || 'Unknown Item'}</div>
                     <div class="mission-meta">
-                        ${out.type ? `<span class="mission-tag tag-faction">${out.type}</span>` : ''}
+                        ${out.type ? `<span class="mission-tag tag-faction">${out.type.replace('Char_Armor_','Armor: ').replace('WeaponPersonal','Weapon').replace('WeaponAttachment','Attachment').replace('Char_Armor_','')}</span>` : ''}
                         ${(out.subType || out.subtype) ? `<span class="mission-tag tag-type">${out.subType || out.subtype}</span>` : ''}
                         ${out.grade ? `<span class="mission-tag" style="background:rgba(155,195,209,0.12);color:#9bc3d1;border:1px solid rgba(155,195,209,0.15);">Grade ${out.grade}</span>` : ''}
                         ${availTag}
@@ -1137,6 +1178,7 @@
                         <span style="color:#35b6ec;font-weight:600;font-size:0.75rem;"><i class="fa-solid fa-clock"></i> ${formatCraftTime(craftTime)}</span>
                         ${bp.tiers && bp.tiers.length > 1 ? `<span class="mission-xp">${bp.tiers.length} tiers</span>` : ''}
                     </div>
+                    ${sourceHtml}
                     ${ingredientHtml}
                 </div>`;
             }).join('');
