@@ -548,7 +548,8 @@
         body:not(.electron) .trade-select,
         body:not(.electron) .ship-search,
         body:not(.electron) .keybind-search,
-        body:not(.electron) .mission-search { user-select: text; -webkit-user-select: text; }
+        body:not(.electron) .mission-search,
+        body:not(.electron) #craftSearch { user-select: text; -webkit-user-select: text; }
 
         @media (max-width: 480px) {
             .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; justify-content: center; }
@@ -587,7 +588,7 @@
             <button class="tab" data-tab="ships"><i class="fa-solid fa-rocket"></i> <span class="tab-label">Ships</span></button>
             <button class="tab" data-tab="keys"><i class="fa-solid fa-keyboard"></i> <span class="tab-label">Keys</span></button>
             <button class="tab" data-tab="notes"><i class="fa-solid fa-note-sticky"></i> <span class="tab-label">Notes</span></button>
-            <button class="tab" data-tab="missions"><i class="fa-solid fa-crosshairs"></i> <span class="tab-label">Missions</span></button>
+            <button class="tab" data-tab="crafting"><i class="fa-solid fa-hammer"></i> <span class="tab-label">Crafting</span></button>
             <button class="tab" data-tab="player"><i class="fa-solid fa-user"></i> <span class="tab-label">Player</span></button>
             <button class="tab" data-tab="org"><i class="fa-solid fa-shield-halved"></i> <span class="tab-label">Org</span></button>
         </div>
@@ -709,18 +710,23 @@
                 </div>
             </div>
 
-            <!-- MISSIONS -->
-            <div class="panel" id="panel-missions">
-                <input type="text" class="mission-search" id="missionSearch" placeholder="Search blueprint missions...">
-                <div class="mission-filters">
-                    <button class="mission-filter active" data-system="all">All Systems</button>
-                    <button class="mission-filter" data-system="Stanton">Stanton</button>
-                    <button class="mission-filter" data-system="Pyro">Pyro</button>
-                    <button class="mission-filter" data-system="Nyx">Nyx</button>
-                    <button class="mission-filter" data-system="Multi">Multi</button>
+            <!-- CRAFTING -->
+            <div class="panel" id="panel-crafting">
+                <input type="text" class="mission-search" id="craftSearch" placeholder="Search blueprints...">
+                <div class="mission-filters" id="craftTypeFilters">
+                    <button class="mission-filter active" data-craft-type="all">All</button>
+                    <button class="mission-filter" data-craft-type="Armor">Armor</button>
+                    <button class="mission-filter" data-craft-type="Weapon">Weapons</button>
+                    <button class="mission-filter" data-craft-type="AmmoBox">Ammo</button>
                 </div>
-                <div class="mission-count" id="missionCount"></div>
-                <div id="missionList"></div>
+                <div class="mission-filters" id="craftSubFilters">
+                    <button class="mission-filter active" data-craft-sub="all">All Grades</button>
+                    <button class="mission-filter" data-craft-sub="Light">Light</button>
+                    <button class="mission-filter" data-craft-sub="Medium">Medium</button>
+                    <button class="mission-filter" data-craft-sub="Heavy">Heavy</button>
+                </div>
+                <div class="mission-count" id="craftCount"></div>
+                <div id="craftList"><div class="loading">Loading blueprints</div></div>
             </div>
 
             <!-- PLAYER LOOKUP -->
@@ -1034,257 +1040,127 @@
             });
         }
 
-        // ===== MISSIONS (Blueprint missions from SCMDB 4.7) =====
-        // Shared blueprint reward pools by faction/generator (from SCMDB data)
-        const bpPools = {
-            vaughn: { name: "Vaughn Eliminate Pool", chance: "1 of 12", items: [
-                "Killshot Rifle", "Deadrig Shotgun", "Overlord Arms Supernova", "Overlord Core Supernova",
-                "Overlord Legs Supernova", "Overlord Helmet Supernova", "Piecemeal Armor Arms",
-                "Piecemeal Armor Core", "Piecemeal Armor Legs", "Badami Helmet",
-                "Killshot Rifle Magazine (45 Cap)", "Deadrig Shotgun Magazine (8 cap)"
-            ]},
-            foxwell: { name: "Foxwell Combat Pool", chance: "1 of 10", items: [
-                "Aves Arms", "Aves Core", "Aves Helmet", "Aves Legs",
-                "CBH-3 Arms", "CBH-3 Core", "CBH-3 Helmet", "CBH-3 Legs",
-                "S71 Rifle", "C54 SMG"
-            ]},
-            eckhart: { name: "Eckhart Security Pool", chance: "1 of 10", items: [
-                "Artimex Arms", "Artimex Core", "Artimex Helmet", "Artimex Legs",
-                "Aztalan Arms", "Aztalan Core", "Aztalan Helmet", "Aztalan Legs",
-                "Gallant Rifle", "Custodian SMG"
-            ]},
-            intersec: { name: "InterSec Defense Pool", chance: "1 of 10", items: [
-                "Morozov-SH Arms", "Morozov-SH Core", "Morozov-SH Helmet", "Morozov-SH Legs",
-                "Antium Arms", "Antium Core", "Antium Helmet", "Antium Legs",
-                "Scalpel Sniper Rifle", "Karna Rifle"
-            ]},
-            cfp: { name: "Citizens For Prosperity Pool", chance: "1 of 10", items: [
-                "Inquisitor Arms", "Inquisitor Core", "Inquisitor Helmet", "Inquisitor Legs",
-                "Monde Arms", "Monde Core", "Monde Helmet", "Monde Legs",
-                "P4-AR Rifle", "LH86 Pistol"
-            ]},
-            headhunters: { name: "Headhunters Combat Pool", chance: "1 of 10", items: [
-                "Testudo Arms", "Testudo Core", "Testudo Helmet", "Testudo Legs",
-                "Aril Arms", "Aril Core", "Aril Helmet", "Aril Legs",
-                "FS-9 LMG", "Ravager-212 Shotgun"
-            ]},
-            bounty: { name: "Bounty Hunters Guild Pool", chance: "1 of 8", items: [
-                "Artimex Arms", "Artimex Core", "Artimex Helmet", "Artimex Legs",
-                "P8-AR Rifle", "P6-LR Sniper", "Coda Pistol", "BR-2 Shotgun"
-            ]},
-            bitzeros: { name: "Bit Zeros Delivery Pool", chance: "1 of 6", items: [
-                "Piecemeal Armor Arms", "Piecemeal Armor Core", "Piecemeal Armor Legs",
-                "MacFlex Arms", "MacFlex Core", "MacFlex Helmet"
-            ]},
-        };
+        // ===== CRAFTING (Live blueprints from scunpacked-data) =====
+        let allBlueprints = null;
+        let craftTypeFilter = 'all';
+        let craftSubFilter = 'all';
 
-        const blueprintMissions = [
-            { name: "Retrieve Additional Smuggler Intel", faction: "InterSec Defense Solutions", system: "Nyx", type: "Investigation", reward: 1205500, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Jorrit Dossier: Project Hyperion", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 677750, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
-            { name: "Recover Vanduul Tech", faction: "InterSec Defense Solutions", system: "Nyx", type: "Collection", reward: 599500, xp: 0, illegal: false, blueprints: "2× VAND", drops: { name: "Fixed Reward", chance: "100%", items: ["2× Vanduul Blueprint (VAND)"] } },
-            { name: "Red Level Contract: Support VIP Clients", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 495250, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Special Purchase Order: Mined Materials", faction: "Shubin Interstellar", system: "Multi", type: "Ship Mining", reward: 498000, xp: 250, illegal: false, blueprints: "ALUM, QUAR, IRON, COPP, TUNG, CORU, TITA, SILI, PRES, HEPH, AGRI, BORA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aluminum (ALUM)","Quartz (QUAR)","Iron (IRON)","Copper (COPP)","Tungsten (TUNG)","Corundum (CORU)","Titanium (TITA)","Silicon (SILI)","Praseodymium (PRES)","Hephaestanite (HEPH)","Agricium (AGRI)","Borase (BORA)"] } },
-            { name: "Patrol Vanduul Hunting Ground", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 359000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Red Level Contract: Secure Threatened Space", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 350000, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Red Level Contract: Save Ships at [LOCATION]", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 333500, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Lrg. Purchase Order: Ship Mined Ore", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 246250, xp: 200, illegal: false, blueprints: "QUAR, COPP, BERY, HEPH, AGRI, BORA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Quartz (QUAR)","Copper (COPP)","Beryl (BERY)","Hephaestanite (HEPH)","Agricium (AGRI)","Borase (BORA)"] } },
-            { name: "Extremely Dangerous Defense", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 241000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
-            { name: "Handle Vanduul Attack on Ship", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 241000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Hit on XenoThreat command", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 230000, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Orange Level Contract: Protect Our Client's Interests", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 222500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Eliminate Vanduul Ship", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 222500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Vital Resources Needed For Research", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 216500, xp: 100, illegal: false, blueprints: "CARI, SALD, JACL", drops: { name: "Fixed Reward", chance: "100%", items: ["Carinite (CARI)","Saldynium (SALD)","Janalite (JACL)"] } },
-            { name: "Patrol to Prevent Possible Attack", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 206500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Mjr. Purchase Order: Ship Mined Ore (RICC/STIL)", faction: "Shubin Interstellar", system: "Pyro", type: "Ship Mining", reward: 206000, xp: 250, illegal: false, blueprints: "RICC / STIL", drops: { name: "Ore Blueprints", chance: "100%", items: ["Riccite (RICC)","Stileron (STIL)"] } },
-            { name: "Red Level Contract: Surprise Attack", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 200000, xp: 16000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Red Level Contract: High-Risk Security Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 200000, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Lrg. Purchase Order: Ship Mined Ore (TORI/BEXA)", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 193250, xp: 250, illegal: false, blueprints: "TORI, BEXA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Torite (TORI)","Bexalite (BEXA)"] } },
-            { name: "Mjr. Purchase Order: Ship Mined Ore (SAVR)", faction: "Shubin Interstellar", system: "Pyro", type: "Ship Mining", reward: 199250, xp: 250, illegal: false, blueprints: "SAVR", drops: { name: "Ore Blueprints", chance: "100%", items: ["Savrilium (SAVR)"] } },
-            { name: "Mjr. Purchase Order: Ship Mined Ore (QUAN)", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 186500, xp: 250, illegal: false, blueprints: "QUAN", drops: { name: "Ore Blueprints", chance: "100%", items: ["Quantanium (QUAN)"] } },
-            { name: "Wanted: [TARGET]", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 181250, xp: 600, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Pilot Under Fire From Vanduul", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 173000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Neutralize Vanduul Target", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 173000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Need multiple CFP outposts retaken", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 156500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Paid Target in CFP", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 156750, xp: 1200, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Sweep and clear some CFP haunts", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 151500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Red Level Contract: Recoup Stolen Cargo", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 151500, xp: 0, illegal: false, blueprints: "2× ALUM", drops: { name: "Fixed Reward", chance: "100%", items: ["2× Aluminum (ALUM)"] } },
-            { name: "Taking XenoThreat Turf", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 151500, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Respond to Distress Beacon", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 150500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Stop Deadly Ship Attack", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 150500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
-            { name: "Preemptive Strike On [TARGET]", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 148250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Protect Vital Asset", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 148250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Destroy Headhunter Stolen Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 146500, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Destroy Outlaw Data Servers", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 143500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Destroy XenoThreat Data Servers", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 143500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Patrol Dangerous Sector", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 140000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Orange Level Contract: Potential Security Threat", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 135000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Red Level Contract: Ship Under Attack", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 132000, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Drop a XenoThreat", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Hit a CFP Complex", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Reputation Management", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 130000, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Reclaiming Outposts from XenoThreat", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 129500, xp: 450, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Time to roll on CFP", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 127750, xp: 400, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Destroy Dangerous Drugs", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 125250, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Recover Vanduul Corpses", faction: "InterSec Defense Solutions", system: "Nyx", type: "Collection", reward: 125000, xp: 0, illegal: false, blueprints: "CRYO", drops: { name: "Fixed Reward", chance: "100%", items: ["Cryogenics Blueprint (CRYO)"] } },
-            { name: "Turf War", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 120750, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Red Level Contract: Ambush Attack Squad", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 120000, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Red Level Contract: Retrieve Cargo Haul", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 119500, xp: 0, illegal: false, blueprints: "CARB", drops: { name: "Fixed Reward", chance: "100%", items: ["Carbon (CARB)"] } },
-            { name: "A little retaliation", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 117250, xp: 375, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Reclaiming Clusters from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 117250, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Retaking Outposts from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 113500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Neutralize UEE Threat: [TARGET]", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 112000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Operative Extraction", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 112000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Orange Level Contract: Ship Protection", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 109750, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Red Level Contract: Recoup Stolen Cargo Haul", faction: "Foxwell Enforcement", system: "Stanton", type: "Hauling", reward: 108250, xp: 0, illegal: false, blueprints: "AGRI", drops: { name: "Fixed Reward", chance: "100%", items: ["Agricium (AGRI)"] } },
-            { name: "Need Resource for Research (CARI)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 105500, xp: 150, illegal: false, blueprints: "CARI", drops: { name: "Fixed Reward", chance: "100%", items: ["Carinite (CARI)"] } },
-            { name: "Outlaw attack at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Headhunter attack on [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Help defend [LOCATION] from Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 105500, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "High-Risk Ship Encounter", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 105250, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
-            { name: "Destroy XenoThreat Logistic Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 101000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Destroy Illegal Drugs", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 101750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "[LOCATION] needs help", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 101000, xp: 850, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Taking back from the Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 97750, xp: 350, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Defenders needed against Headhunters", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 97750, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Jorrit Dossier: Updated Power Usage Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 91500, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
-            { name: "Bounty Assignment: [TARGET] (HRT)", faction: "Northrock Service Group", system: "Stanton", type: "Bounty Hunter", reward: 87500, xp: 8000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
-            { name: "Hit XenoThreat at [LOCATION]", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 86750, xp: 300, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Terrorist [TARGET] to be Neutralized", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "New Defense Contract: [TARGET] Elimination", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Defend InterSec Operative", faction: "InterSec Defense Solutions", system: "Nyx", type: "Mercenary", reward: 86750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.intersec },
-            { name: "Reclaim XenoThreat Outpost", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 86000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Our Version of The Truth", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 78000, xp: 250, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
-            { name: "Orange Level Contract: [SHIP] Needs Assistance", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 78250, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Protecting outpost from XenoThreat", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 78250, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Lrg. Purchase Order: Hand Mined Materials (APHO/HADA)", faction: "Shubin Interstellar", system: "Pyro", type: "Hand Mining", reward: 75750, xp: 150, illegal: false, blueprints: "APHO, HADA", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aphorite (APHO)","Hadanite (HADA)"] } },
-            { name: "Orange Level Contract: Return the Favor", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 75000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Orange Level Contract: Security Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 74000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Jorrit Dossier: Updated Seismic Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 73250, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
-            { name: "[LOCATION] needs assistance", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 73250, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Eradicate All Traces of Headhunter Data", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 72750, xp: 1550, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Stop Attack on High-Profile Client", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 72750, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
-            { name: "They Will Be Missed", faction: "Vaughn", system: "Stanton", type: "Mercenary", reward: 70250, xp: 4000, illegal: true, blueprints: "Random", drops: bpPools.vaughn },
-            { name: "Defend [LOCATION] from Outlaws", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 68500, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Yellow Level Contract: Defend [LOCATION]", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 67750, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Call for Help: [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 66000, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Knock Out New Drug Op", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 63750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Plug a traitor", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 63750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Precision Strike on [TARGET]", faction: "Foxwell Enforcement", system: "Stanton", type: "Bounty Hunter", reward: 62750, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Driving CFP out", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "[LOCATION] has been greenlit", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Taking out some XenoThreat trash", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 62500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Destroy XenoThreat Logistic Data (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 60000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Eliminate Fuel Stores", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 58000, xp: 250, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Track Down [TARGET]", faction: "Foxwell Enforcement", system: "Stanton", type: "Bounty Hunter", reward: 56750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Kill the king", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 56750, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Reclaim Headhunter Outpost", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 56500, xp: 150, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Defend [LOCATION] from Outlaws (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 56500, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Carefully Clear Site", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 55000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Pilot Seeking Combat Support", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 55000, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Support Client Under Attack", faction: "Eckhart Security", system: "Nyx", type: "Mercenary", reward: 55000, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.eckhart },
-            { name: "Halt Narcotics Operation", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Take Outlaws at [LOCATION] Offline", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 200, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Jorrit Dossier: Updated Security Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 55000, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
-            { name: "Destroy Headhunter Stolen Data (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 55000, xp: 125, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Disable Outlaw Stronghold at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 54250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Yellow Level Contract: Ship Under Attack", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 53000, xp: 0, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Need Resource for Research (SALD)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 52750, xp: 100, illegal: false, blueprints: "SALD", drops: { name: "Fixed Reward", chance: "100%", items: ["Saldynium (SALD)"] } },
-            { name: "Need Resource for Research (JACL)", faction: "Rayari Incorporated", system: "Stanton", type: "Collection", reward: 52750, xp: 100, illegal: false, blueprints: "JACL", drops: { name: "Fixed Reward", chance: "100%", items: ["Janalite (JACL)"] } },
-            { name: "Yellow Level Contract: Security Sweep", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 50000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Bounty Assignment: [TARGET] (MRT)", faction: "Northrock Service Group", system: "Stanton", type: "Bounty Hunter", reward: 44500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
-            { name: "Still Looking for Work?", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 44750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Help Protect Site", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 44750, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Verified Bounty: [TARGET] (MRT)", faction: "Bounty Hunters Guild", system: "Nyx", type: "Bounty Hunter", reward: 44500, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
-            { name: "Too Smart For Our Own Good", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 41750, xp: 150, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
-            { name: "Yellow Level Contract: Stand Up to Aggressors", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 40250, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Orange Level Contract: Spring a Trap", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 40000, xp: 2000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Reputation Management (small)", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 39250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Lrg. Purchase Order: Hand Mined Materials (APHO)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 38000, xp: 150, illegal: false, blueprints: "APHO", drops: { name: "Fixed Reward", chance: "100%", items: ["Aphorite (APHO)"] } },
-            { name: "Lrg. Purchase Order: Hand Mined Materials (HADA)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 42250, xp: 150, illegal: false, blueprints: "HADA", drops: { name: "Fixed Reward", chance: "100%", items: ["Hadanite (HADA)"] } },
-            { name: "Lrg. Purchase Order: Hand Mined Materials (DOLI)", faction: "Shubin Interstellar", system: "Stanton", type: "Hand Mining", reward: 38000, xp: 150, illegal: false, blueprints: "DOLI", drops: { name: "Fixed Reward", chance: "100%", items: ["Dolivine (DOLI)"] } },
-            { name: "Hitting a CFP site", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 37250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Need a hitter", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 37250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Pilot in Distress", faction: "Citizens For Prosperity", system: "Nyx", type: "Mercenary", reward: 36500, xp: 100, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Jorrit Dossier: Updated Energy Anomaly Data", faction: "Hockrow Agency", system: "Stanton", type: "Investigation", reward: 36500, xp: 0, illegal: false, blueprints: "ASD Secure Drive", drops: { name: "Fixed Reward", chance: "100%", items: ["ASD Secure Drive"] } },
-            { name: "Getting To the Bottom of It", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 35250, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
-            { name: "Disable Outlaw Stronghold at [LOCATION] (small)", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 33750, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Need someone taken out", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 33000, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Data Transfer", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 32500, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
-            { name: "Pick Up, Put Down", faction: "Bit Zeros", system: "Multi", type: "Delivery", reward: 32500, xp: 100, illegal: true, blueprints: "Random", drops: bpPools.bitzeros },
-            { name: "Sweep and Clear Location", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Yellow Level Contract: Clear Out PAF", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Yellow Level Contract: Merc Work", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 32000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Yellow Level Contract: Routine Patrol", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 30000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Yellow Level Contract: Surprise Strike", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 30000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "XS Purchase Order: Ship Mined Ore", faction: "Shubin Interstellar", system: "Stanton", type: "Ship Mining", reward: 28750, xp: 100, illegal: false, blueprints: "ALUM, TUNG, CORU", drops: { name: "Ore Blueprints", chance: "100%", items: ["Aluminum (ALUM)","Tungsten (TUNG)","Corundum (CORU)"] } },
-            { name: "Assistance needed at [LOCATION]", faction: "Citizens For Prosperity", system: "Pyro", type: "Mercenary", reward: 26250, xp: 75, illegal: false, blueprints: "Random", drops: bpPools.cfp },
-            { name: "Deep space hit", faction: "Headhunters", system: "Pyro", type: "Mercenary", reward: 24250, xp: 50, illegal: false, blueprints: "Random", drops: bpPools.headhunters },
-            { name: "Yellow Level Contract: Ambush An Amateur", faction: "Foxwell Enforcement", system: "Multi", type: "Mercenary", reward: 20000, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-            { name: "Verified Bounty: [TARGET] (LRT)", faction: "Bounty Hunters Guild", system: "Nyx", type: "Bounty Hunter", reward: 19000, xp: 1000, illegal: false, blueprints: "Random", drops: bpPools.bounty },
-            { name: "Foxwell Enforcement: Destroy Satellite", faction: "Foxwell Enforcement", system: "Stanton", type: "Mercenary", reward: 17500, xp: 500, illegal: false, blueprints: "Random", drops: bpPools.foxwell },
-        ];
+        async function loadBlueprints() {
+            if (allBlueprints) { renderCrafting(); return; }
+            try {
+                const res = await fetch('https://raw.githubusercontent.com/StarCitizenWiki/scunpacked-data/master/blueprints.json');
+                allBlueprints = await res.json();
+                renderCrafting();
+            } catch {
+                document.getElementById('craftList').innerHTML = '<div class="loading">Failed to load blueprints</div>';
+            }
+        }
 
-        let currentSystemFilter = 'all';
+        function formatCraftTime(seconds) {
+            if (!seconds) return '—';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            if (h > 0) return `${h}h ${m}m`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        }
 
-        function renderMissions(filter = '', system = 'all') {
-            const list = document.getElementById('missionList');
-            const q = filter.toLowerCase();
-            const filtered = blueprintMissions.filter(m => {
-                const dropsMatch = m.drops && m.drops.items.some(item => item.toLowerCase().includes(q));
-                const matchSearch = !q || m.name.toLowerCase().includes(q) || m.faction.toLowerCase().includes(q) || m.type.toLowerCase().includes(q) || m.blueprints.toLowerCase().includes(q) || dropsMatch;
-                const matchSystem = system === 'all' || m.system === system;
-                return matchSearch && matchSystem;
-            }).sort((a, b) => b.reward - a.reward);
+        function renderCrafting() {
+            if (!allBlueprints) return;
+            const list = document.getElementById('craftList');
+            const q = document.getElementById('craftSearch').value.toLowerCase();
 
-            document.getElementById('missionCount').textContent = filtered.length + ' blueprint missions found';
+            const filtered = allBlueprints.filter(bp => {
+                const out = bp.output || {};
+                const matchType = craftTypeFilter === 'all' || (out.type || '').toLowerCase().includes(craftTypeFilter.toLowerCase());
+                const matchSub = craftSubFilter === 'all' || (out.subType || out.subtype || '').toLowerCase() === craftSubFilter.toLowerCase();
+                if (!matchType || !matchSub) return false;
+                if (!q) return true;
+                const name = (out.name || '').toLowerCase();
+                const type = (out.type || '').toLowerCase();
+                const sub = (out.subType || out.subtype || '').toLowerCase();
+                const ingredients = (bp.tiers || []).flatMap(t =>
+                    (t.requirements?.children || []).flatMap(g =>
+                        (g.children || []).map(r => (r.name || '').toLowerCase())
+                    )
+                );
+                return name.includes(q) || type.includes(q) || sub.includes(q) || ingredients.some(i => i.includes(q));
+            });
+
+            document.getElementById('craftCount').textContent = filtered.length + ' blueprints found';
 
             if (filtered.length === 0) {
-                list.innerHTML = '<div style="text-align:center;color:#9bc3d1;padding:20px;font-size:0.8rem;">No missions match your search.</div>';
+                list.innerHTML = '<div style="text-align:center;color:#9bc3d1;padding:20px;font-size:0.8rem;">No blueprints match your filters.</div>';
                 return;
             }
 
-            list.innerHTML = filtered.map((m, i) => {
-                const dropsHtml = m.drops ? `
+            list.innerHTML = filtered.map(bp => {
+                const out = bp.output || {};
+                const avail = bp.availability || {};
+                const tier = (bp.tiers && bp.tiers[0]) || {};
+                const craftTime = tier.craft_time_seconds || tier.craftTimeSeconds;
+                const groups = tier.requirements?.children || [];
+                const ingredients = groups.flatMap(g =>
+                    (g.children || []).map(r => ({
+                        group: g.name || 'Materials',
+                        name: r.name || 'Unknown',
+                        qty: r.quantity_scu ?? r.quantityScu ?? r.quantity ?? '?'
+                    }))
+                );
+                const isDefault = avail.default === true;
+                const rewardPools = avail.reward_pools || avail.rewardPools || [];
+                const availTag = isDefault
+                    ? '<span class="mission-tag tag-system">Default</span>'
+                    : rewardPools.length > 0
+                        ? '<span class="mission-tag tag-blueprint">Mission Reward</span>'
+                        : '<span class="mission-tag tag-type">Unknown</span>';
+
+                const ingredientHtml = ingredients.length > 0 ? `
                     <div class="drops-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-                        <span class="arrow">▶</span> ${m.drops.items.length} blueprint${m.drops.items.length > 1 ? 's' : ''} · ${m.drops.chance}
+                        <span class="arrow">▶</span> ${ingredients.length} ingredient${ingredients.length > 1 ? 's' : ''}
                     </div>
                     <div class="drops-list">
-                        <div class="drop-pool-info">📦 ${m.drops.name}</div>
-                        ${m.drops.items.map(item => `<div class="drop-item"><span class="drop-icon">🔧</span><span class="drop-name">${item}</span></div>`).join('')}
+                        ${ingredients.map(i => `<div class="drop-item"><span class="drop-icon">📦</span><span class="drop-name">${i.name}</span><span style="margin-left:auto;color:#57f287;font-size:0.65rem;font-weight:600;">${i.qty} SCU</span></div>`).join('')}
                     </div>` : '';
+
                 return `
-                <div class="mission-card${m.illegal ? ' illegal' : ''}">
-                    <div class="mission-name">${m.name}</div>
+                <div class="mission-card">
+                    <div class="mission-name">${out.name || 'Unknown Item'}</div>
                     <div class="mission-meta">
-                        <span class="mission-tag tag-faction">${m.faction}</span>
-                        <span class="mission-tag tag-system">${m.system}</span>
-                        <span class="mission-tag tag-type">${m.type}</span>
-                        <span class="mission-tag tag-blueprint">🔧 ${m.blueprints}</span>
-                        ${m.illegal ? '<span class="mission-tag tag-illegal">ILLEGAL</span>' : ''}
+                        ${out.type ? `<span class="mission-tag tag-faction">${out.type}</span>` : ''}
+                        ${(out.subType || out.subtype) ? `<span class="mission-tag tag-type">${out.subType || out.subtype}</span>` : ''}
+                        ${out.grade ? `<span class="mission-tag" style="background:rgba(155,195,209,0.12);color:#9bc3d1;border:1px solid rgba(155,195,209,0.15);">Grade ${out.grade}</span>` : ''}
+                        ${availTag}
                     </div>
                     <div class="mission-reward">
-                        <span class="mission-uec">${m.reward > 0 ? m.reward.toLocaleString() + ' aUEC' : '—'}</span>
-                        <span class="mission-xp">${m.xp > 0 ? m.xp.toLocaleString() + ' XP' : ''}</span>
+                        <span style="color:#35b6ec;font-weight:600;font-size:0.75rem;"><i class="fa-solid fa-clock"></i> ${formatCraftTime(craftTime)}</span>
+                        ${bp.tiers && bp.tiers.length > 1 ? `<span class="mission-xp">${bp.tiers.length} tiers</span>` : ''}
                     </div>
-                    ${dropsHtml}
+                    ${ingredientHtml}
                 </div>`;
             }).join('');
         }
 
-        document.getElementById('missionSearch').addEventListener('input', (e) => {
-            renderMissions(e.target.value, currentSystemFilter);
-        });
+        document.getElementById('craftSearch').addEventListener('input', () => renderCrafting());
 
-        document.querySelectorAll('.mission-filter').forEach(btn => {
+        document.querySelectorAll('#craftTypeFilters .mission-filter').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.mission-filter').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#craftTypeFilters .mission-filter').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentSystemFilter = btn.dataset.system;
-                renderMissions(document.getElementById('missionSearch').value, currentSystemFilter);
+                craftTypeFilter = btn.dataset.craftType;
+                renderCrafting();
             });
         });
 
-        renderMissions();
+        document.querySelectorAll('#craftSubFilters .mission-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#craftSubFilters .mission-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                craftSubFilter = btn.dataset.craftSub;
+                renderCrafting();
+            });
+        });
 
         // ===== PLAYER & ORG LOOKUP =====
         const SC_API_KEY = 'mi8VgFEdajdfXuvqcpnQpRa4OSyULrpV';
@@ -1500,6 +1376,7 @@
             loadCargoShips();
             loadOrePrices();
             loadShips();
+            loadBlueprints();
         });
     </script>
 </body>

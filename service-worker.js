@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nodelypy-sc-v4';
+const CACHE_NAME = 'nodelypy-sc-v5';
 const ASSETS = [
     './overlay.html',
     './manifest.json',

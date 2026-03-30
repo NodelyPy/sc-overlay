@@ -48,12 +48,13 @@ Live at: **[nodelypy.github.io/sc-overlay](https://nodelypy.github.io/sc-overlay
 - Lists members with ranks, roles, and star ratings
 - Click any member to look up their player profile
 
-### 🎯 Missions
-- ~130 blueprint missions sourced from SCMDB (Star Citizen Mission Database)
-- 8 faction-specific blueprint reward pools with collapsible drop lists:
-  - Vaughn, Foxwell, Eckhart, InterSec, Citizens For Prosperity, Headhunters, Bounty Hunters Guild, Bit Zeros
-- Search by mission name, faction, type, or blueprint item name
-- System filters: All, Stanton, Pyro, Nyx, Multi-system
+### 🔨 Crafting
+- Live blueprint data from scunpacked-data (StarCitizenWiki community extract)
+- Searchable, filterable list of all craftable items (armor, weapons, ammo, attachments)
+- Filters by type (Armor/Weapons/Ammo) and subtype (Light/Medium/Heavy)
+- Each blueprint shows output item, grade, craft time, and full ingredient list with SCU quantities
+- Indicates whether a blueprint is available by default or as a mission reward
+- Data fetched live and cached per session for fast browsing
 
 ---
 
@@ -95,7 +96,7 @@ This project uses data and services from the following sources. Full credit goes
 
 - **[SC Cargo Space](https://sc-cargo.space/)** — Cargo grid viewer embedded in the Ships tab. A community tool for visualising ship cargo grids.
 
-- **[SCMDB (Star Citizen Mission Database)](https://scmdb.com/)** — Blueprint mission data and faction reward pool information used in the Missions tab.
+- **[scunpacked-data (StarCitizenWiki)](https://github.com/StarCitizenWiki/scunpacked-data)** — Community-maintained game data extract. Blueprint/crafting data used in the Crafting tab.
 
 - **[StarCitizen-API](https://starcitizen-api.com/)** — Community API providing player profile and organization data scraped from the RSI website. Used for the Player and Org lookup tabs.
 
