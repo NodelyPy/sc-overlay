@@ -1189,23 +1189,6 @@
                 const enlisted = p.enlisted ? new Date(p.enlisted).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
                 const fluency = p.fluency ? p.fluency.join(', ') : 'Unknown';
 
-                let orgHtml = '';
-                if (o && o.sid) {
-                    orgHtml = `
-                        <hr class="glow-divider">
-                        <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Main Organization</div>
-                        <div class="org-header">
-                            ${o.image ? `<img class="org-logo" src="${o.image}" alt="${o.name}">` : ''}
-                            <div>
-                                <div class="org-name org-link" onclick="lookupOrgFromPlayer('${o.sid}')">${o.name}</div>
-                                <div class="org-sid">[${o.sid}]</div>
-                                <div style="font-size:0.68rem;color:#9bc3d1;margin-top:2px;">Rank: ${o.rank || 'Member'}</div>
-                            </div>
-                        </div>
-                        <div style="font-size:0.65rem;color:#1c4d6e;text-align:center;">Click org name to view full details</div>
-                    `;
-                }
-
                 result.innerHTML = `
                     <div class="profile-card">
                         <div class="profile-header">
@@ -1226,9 +1209,59 @@
                                 <div class="profile-detail-value">${fluency}</div>
                             </div>
                         </div>
-                        ${orgHtml}
+                        ${o && o.sid ? '<hr class="glow-divider"><div id="playerOrgDetail"><div class="loading">Loading org details</div></div>' : ''}
                     </div>
                 `;
+
+                if (o && o.sid) {
+                    try {
+                        const orgData = await scApiFetch(`cache/organization/${encodeURIComponent(o.sid)}`);
+                        const focusHtml = (orgData.focus && (orgData.focus.primary || orgData.focus.secondary)) ? `
+                            <div class="org-focus-row">
+                                ${orgData.focus.primary ? `<div class="org-focus-item">${orgData.focus.primary.image ? `<img class="org-focus-icon" src="${orgData.focus.primary.image}">` : ''}<div><div class="org-focus-label">Primary</div><div class="org-focus-name">${orgData.focus.primary.name}</div></div></div>` : ''}
+                                ${orgData.focus.secondary ? `<div class="org-focus-item">${orgData.focus.secondary.image ? `<img class="org-focus-icon" src="${orgData.focus.secondary.image}">` : ''}<div><div class="org-focus-label">Secondary</div><div class="org-focus-name">${orgData.focus.secondary.name}</div></div></div>` : ''}
+                            </div>` : '';
+                        const orgTags = [];
+                        if (orgData.archetype) orgTags.push(`<span class="mission-tag tag-type">${orgData.archetype}</span>`);
+                        if (orgData.commitment) orgTags.push(`<span class="mission-tag tag-system">${orgData.commitment}</span>`);
+                        if (orgData.lang) orgTags.push(`<span class="mission-tag tag-faction">${orgData.lang}</span>`);
+                        if (orgData.recruiting) orgTags.push(`<span class="mission-tag" style="background:rgba(87,242,135,0.12);color:#57f287;border:1px solid rgba(87,242,135,0.15);">Recruiting</span>`);
+
+                        document.getElementById('playerOrgDetail').innerHTML = `
+                            <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Main Organization</div>
+                            ${orgData.banner ? `<div class="org-banner-wrap"><img class="org-banner" src="${orgData.banner}" alt="Banner"></div>` : ''}
+                            <div class="org-header">
+                                ${orgData.logo ? `<img class="org-logo" src="${orgData.logo}" alt="${orgData.name}">` : (o.image ? `<img class="org-logo" src="${o.image}" alt="${o.name}">` : '')}
+                                <div>
+                                    <div class="org-name org-link" onclick="lookupOrgFromPlayer('${o.sid}')">${orgData.name || o.name}</div>
+                                    <div class="org-sid">[${o.sid}]</div>
+                                    <div style="font-size:0.68rem;color:#9bc3d1;margin-top:2px;">Rank: ${o.rank || 'Member'}</div>
+                                </div>
+                            </div>
+                            <div class="org-tags">${orgTags.join('')}</div>
+                            <div class="org-stats">
+                                <div class="org-stat"><div class="org-stat-value">${(orgData.members || 0).toLocaleString()}</div><div class="org-stat-label">Members</div></div>
+                                <div class="org-stat"><div class="org-stat-value">${orgData.commitment || '—'}</div><div class="org-stat-label">Commitment</div></div>
+                                <div class="org-stat"><div class="org-stat-value">${orgData.archetype || '—'}</div><div class="org-stat-label">Archetype</div></div>
+                            </div>
+                            ${focusHtml}
+                            <div style="font-size:0.65rem;color:#1c4d6e;text-align:center;">Click org name to view full details</div>
+                        `;
+                    } catch {
+                        document.getElementById('playerOrgDetail').innerHTML = `
+                            <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Main Organization</div>
+                            <div class="org-header">
+                                ${o.image ? `<img class="org-logo" src="${o.image}" alt="${o.name}">` : ''}
+                                <div>
+                                    <div class="org-name org-link" onclick="lookupOrgFromPlayer('${o.sid}')">${o.name}</div>
+                                    <div class="org-sid">[${o.sid}]</div>
+                                    <div style="font-size:0.68rem;color:#9bc3d1;margin-top:2px;">Rank: ${o.rank || 'Member'}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:0.65rem;color:#1c4d6e;text-align:center;">Click org name to view full details</div>
+                        `;
+                    }
+                }
             } catch (e) {
                 result.innerHTML = `<div class="lookup-error"><i class="fa-solid fa-circle-exclamation"></i> Player "${handle}" not found</div>`;
             }
@@ -1322,14 +1355,26 @@
         }
 
         async function loadOrgMembers(sid) {
+            const list = document.getElementById('orgMembersList');
             try {
-                const data = await scApiFetch(`live/organization_members/${encodeURIComponent(sid)}`);
-                const list = document.getElementById('orgMembersList');
-                if (!data || data.length === 0) {
+                let allMembers = [];
+                let page = 1;
+                const maxPages = 10;
+                while (page <= maxPages) {
+                    const data = await scApiFetch(`live/organization_members/${encodeURIComponent(sid)}?page=${page}`);
+                    if (!data || data.length === 0) break;
+                    allMembers = allMembers.concat(data);
+                    list.innerHTML = `<div style="color:#1c4d6e;font-size:0.75rem;text-align:center;padding:8px;">Loading members... (${allMembers.length} so far)</div>`;
+                    if (data.length < 32) break;
+                    page++;
+                }
+                if (allMembers.length === 0) {
                     list.innerHTML = '<div style="color:#1c4d6e;font-size:0.75rem;text-align:center;padding:8px;">No members found</div>';
                     return;
                 }
-                list.innerHTML = data.map(m => {
+                const capped = page > maxPages;
+                list.innerHTML = (capped ? `<div style="color:#1c4d6e;font-size:0.65rem;text-align:center;padding:4px;">Showing first ${allMembers.length} members</div>` : '') +
+                    allMembers.map(m => {
                     const stars = m.stars ? '★'.repeat(m.stars) : '';
                     const roles = m.roles ? m.roles.map(r => `<span class="member-role">${r}</span>`).join(' ') : '';
                     return `
@@ -1342,7 +1387,7 @@
                         </div>`;
                 }).join('');
             } catch (e) {
-                document.getElementById('orgMembersList').innerHTML = '<div style="color:#ed4245;font-size:0.75rem;text-align:center;padding:8px;">Failed to load members</div>';
+                list.innerHTML = '<div style="color:#ed4245;font-size:0.75rem;text-align:center;padding:8px;">Failed to load members</div>';
             }
         }
 
