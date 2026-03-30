@@ -36,6 +36,18 @@ Live at: **[nodelypy.github.io/sc-overlay](https://nodelypy.github.io/sc-overlay
 - Quick notepad for jotting down mission details, trade routes, coordinates, targets
 - Auto-saves locally (persists between sessions)
 
+### 👤 Player Lookup
+- Search any Star Citizen player by their handle
+- Shows profile avatar, display name, enlistment date, badge, languages
+- Displays their main organization with clickable link to org details
+
+### 🏛 Org Lookup
+- Search any organization by its SID (Spectrum ID)
+- Shows org banner, logo, name, member count, archetype, commitment level
+- Displays primary and secondary focus areas
+- Lists members with ranks, roles, and star ratings
+- Click any member to look up their player profile
+
 ### 🎯 Missions
 - ~130 blueprint missions sourced from SCMDB (Star Citizen Mission Database)
 - 8 faction-specific blueprint reward pools with collapsible drop lists:
@@ -84,6 +96,8 @@ This project uses data and services from the following sources. Full credit goes
 - **[SC Cargo Space](https://sc-cargo.space/)** — Cargo grid viewer embedded in the Ships tab. A community tool for visualising ship cargo grids.
 
 - **[SCMDB (Star Citizen Mission Database)](https://scmdb.com/)** — Blueprint mission data and faction reward pool information used in the Missions tab.
+
+- **[StarCitizen-API](https://starcitizen-api.com/)** — Community API providing player profile and organization data scraped from the RSI website. Used for the Player and Org lookup tabs.
 
 - **[Font Awesome](https://fontawesome.com/)** — Icon library used for UI tab icons.
 

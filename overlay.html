@@ -403,6 +403,130 @@
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+        /* ===== PLAYER & ORG LOOKUP ===== */
+        .lookup-search-wrap {
+            display: flex; gap: 6px; margin-bottom: 10px;
+        }
+        .lookup-input {
+            flex: 1; padding: 8px 12px; border-radius: 10px;
+            border: 1px solid rgba(28, 77, 110, 0.4);
+            background: rgba(17, 31, 41, 0.5); color: #ebebeb;
+            font-size: 0.82rem; outline: none;
+        }
+        .lookup-input::placeholder { color: #1c4d6e; }
+        .lookup-btn {
+            padding: 8px 16px; border-radius: 10px; font-size: 0.78rem; font-weight: 700;
+            border: 1px solid rgba(53, 182, 236, 0.3); background: rgba(53, 182, 236, 0.15);
+            color: #35b6ec; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .lookup-btn:hover { background: rgba(53, 182, 236, 0.3); color: #ebebeb; }
+        .lookup-btn:active { transform: scale(0.96); }
+
+        .profile-card {
+            background: rgba(28, 77, 110, 0.08); border: 1px solid rgba(28, 77, 110, 0.3);
+            border-radius: 12px; padding: 16px; margin-bottom: 10px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .profile-card:hover { border-color: rgba(53, 182, 236, 0.3); box-shadow: 0 2px 12px rgba(53, 182, 236, 0.08); }
+        .profile-header {
+            display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+        }
+        .profile-avatar {
+            width: 64px; height: 64px; border-radius: 12px;
+            border: 2px solid rgba(53, 182, 236, 0.3);
+            object-fit: cover; background: rgba(17, 31, 41, 0.5);
+        }
+        .profile-info { flex: 1; }
+        .profile-display { font-size: 1rem; font-weight: 800; color: #ebebeb; }
+        .profile-handle { font-size: 0.72rem; color: #35b6ec; }
+        .profile-badge {
+            display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 6px;
+            font-size: 0.62rem; font-weight: 600;
+            background: rgba(254, 231, 92, 0.12); color: #fee75c;
+            border: 1px solid rgba(254, 231, 92, 0.15);
+        }
+        .profile-details {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        .profile-detail-item {
+            padding: 8px 10px; border-radius: 8px;
+            background: rgba(17, 31, 41, 0.4);
+            border: 1px solid rgba(28, 77, 110, 0.2);
+        }
+        .profile-detail-label {
+            font-size: 0.6rem; color: #1c4d6e; text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 700;
+        }
+        .profile-detail-value { font-size: 0.78rem; color: #ebebeb; font-weight: 600; margin-top: 2px; }
+
+        .org-banner-wrap {
+            border-radius: 10px; overflow: hidden; margin-bottom: 12px;
+            border: 1px solid rgba(28, 77, 110, 0.2); max-height: 100px;
+        }
+        .org-banner { width: 100%; height: 100px; object-fit: cover; display: block; }
+        .org-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+        }
+        .org-logo {
+            width: 56px; height: 56px; border-radius: 10px;
+            border: 2px solid rgba(53, 182, 236, 0.3);
+            object-fit: cover; background: rgba(17, 31, 41, 0.5);
+        }
+        .org-name { font-size: 0.95rem; font-weight: 800; color: #ebebeb; }
+        .org-sid { font-size: 0.7rem; color: #35b6ec; font-weight: 600; }
+        .org-stats {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px;
+        }
+        .org-stat {
+            text-align: center; padding: 8px 6px; border-radius: 8px;
+            background: rgba(17, 31, 41, 0.4); border: 1px solid rgba(28, 77, 110, 0.2);
+        }
+        .org-stat-value { font-size: 1rem; font-weight: 800; color: #57f287; }
+        .org-stat-label { font-size: 0.58rem; color: #9bc3d1; text-transform: uppercase; letter-spacing: 0.3px; }
+        .org-focus-row {
+            display: flex; gap: 8px; margin-bottom: 8px;
+        }
+        .org-focus-item {
+            flex: 1; display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-radius: 8px;
+            background: rgba(17, 31, 41, 0.4); border: 1px solid rgba(28, 77, 110, 0.2);
+        }
+        .org-focus-icon { width: 24px; height: 24px; }
+        .org-focus-label { font-size: 0.58rem; color: #1c4d6e; text-transform: uppercase; font-weight: 700; }
+        .org-focus-name { font-size: 0.75rem; color: #ebebeb; font-weight: 600; }
+        .org-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+
+        .member-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 6px; border-bottom: 1px solid rgba(28, 77, 110, 0.15);
+            border-radius: 6px; transition: background 0.2s;
+        }
+        .member-row:hover { background: rgba(53, 182, 236, 0.06); }
+        .member-avatar {
+            width: 32px; height: 32px; border-radius: 8px;
+            object-fit: cover; border: 1px solid rgba(28, 77, 110, 0.3);
+        }
+        .member-info { flex: 1; }
+        .member-name { font-size: 0.78rem; font-weight: 600; color: #ebebeb; }
+        .member-rank { font-size: 0.65rem; color: #9bc3d1; }
+        .member-stars { color: #fee75c; font-size: 0.65rem; }
+        .member-role {
+            padding: 2px 6px; border-radius: 4px; font-size: 0.58rem; font-weight: 600;
+            background: rgba(53, 182, 236, 0.1); color: #35b6ec;
+        }
+        .org-link {
+            cursor: pointer; color: #35b6ec; text-decoration: none;
+            transition: color 0.2s;
+        }
+        .org-link:hover { color: #ebebeb; text-decoration: underline; }
+        .lookup-error {
+            text-align: center; padding: 16px; color: #ed4245;
+            font-size: 0.78rem; font-weight: 600;
+        }
+        .lookup-empty {
+            text-align: center; padding: 20px; color: #1c4d6e; font-size: 0.8rem;
+        }
+
         /* ===== GLOW DIVIDERS ===== */
         .glow-divider {
             height: 1px; margin: 12px 0; border: none;
@@ -464,6 +588,8 @@
             <button class="tab" data-tab="keys"><i class="fa-solid fa-keyboard"></i> <span class="tab-label">Keys</span></button>
             <button class="tab" data-tab="notes"><i class="fa-solid fa-note-sticky"></i> <span class="tab-label">Notes</span></button>
             <button class="tab" data-tab="missions"><i class="fa-solid fa-crosshairs"></i> <span class="tab-label">Missions</span></button>
+            <button class="tab" data-tab="player"><i class="fa-solid fa-user"></i> <span class="tab-label">Player</span></button>
+            <button class="tab" data-tab="org"><i class="fa-solid fa-shield-halved"></i> <span class="tab-label">Org</span></button>
         </div>
 
         <div class="panels-wrap">
@@ -595,6 +721,28 @@
                 </div>
                 <div class="mission-count" id="missionCount"></div>
                 <div id="missionList"></div>
+            </div>
+
+            <!-- PLAYER LOOKUP -->
+            <div class="panel" id="panel-player">
+                <div class="lookup-search-wrap">
+                    <input type="text" class="lookup-input" id="playerInput" placeholder="Enter player handle...">
+                    <button class="lookup-btn" id="playerSearchBtn"><i class="fa-solid fa-search"></i> Lookup</button>
+                </div>
+                <div id="playerResult">
+                    <div class="lookup-empty"><i class="fa-solid fa-user-astronaut" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>Search for a Star Citizen player by their handle</div>
+                </div>
+            </div>
+
+            <!-- ORG LOOKUP -->
+            <div class="panel" id="panel-org">
+                <div class="lookup-search-wrap">
+                    <input type="text" class="lookup-input" id="orgInput" placeholder="Enter org SID (e.g. TEST)...">
+                    <button class="lookup-btn" id="orgSearchBtn"><i class="fa-solid fa-search"></i> Lookup</button>
+                </div>
+                <div id="orgResult">
+                    <div class="lookup-empty"><i class="fa-solid fa-shield-halved" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>Search for an organization by its SID</div>
+                </div>
             </div>
 
         </div>
@@ -1137,6 +1285,198 @@
         });
 
         renderMissions();
+
+        // ===== PLAYER & ORG LOOKUP =====
+        const SC_API_KEY = 'mi8VgFEdajdfXuvqcpnQpRa4OSyULrpV';
+        const SC_API = `https://api.starcitizen-api.com/${SC_API_KEY}/v1`;
+
+        async function scApiFetch(endpoint) {
+            const res = await fetch(`${SC_API}/${endpoint}`);
+            const json = await res.json();
+            if (json.success === 1) return json.data;
+            throw new Error(json.message || 'Not found');
+        }
+
+        // --- Player Lookup ---
+        document.getElementById('playerSearchBtn').addEventListener('click', () => lookupPlayer());
+        document.getElementById('playerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupPlayer(); });
+
+        async function lookupPlayer() {
+            const handle = document.getElementById('playerInput').value.trim();
+            if (!handle) return;
+            const result = document.getElementById('playerResult');
+            result.innerHTML = '<div class="loading">Looking up player</div>';
+            try {
+                const data = await scApiFetch(`cache/user/${encodeURIComponent(handle)}`);
+                const p = data.profile;
+                const o = data.organization;
+                const enlisted = p.enlisted ? new Date(p.enlisted).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
+                const fluency = p.fluency ? p.fluency.join(', ') : 'Unknown';
+
+                let orgHtml = '';
+                if (o && o.sid) {
+                    orgHtml = `
+                        <hr class="glow-divider">
+                        <div class="card-title"><i class="fa-solid fa-shield-halved"></i> Main Organization</div>
+                        <div class="org-header">
+                            ${o.image ? `<img class="org-logo" src="${o.image}" alt="${o.name}">` : ''}
+                            <div>
+                                <div class="org-name org-link" onclick="lookupOrgFromPlayer('${o.sid}')">${o.name}</div>
+                                <div class="org-sid">[${o.sid}]</div>
+                                <div style="font-size:0.68rem;color:#9bc3d1;margin-top:2px;">Rank: ${o.rank || 'Member'}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.65rem;color:#1c4d6e;text-align:center;">Click org name to view full details</div>
+                    `;
+                }
+
+                result.innerHTML = `
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            ${p.image ? `<img class="profile-avatar" src="${p.image}" alt="${p.display}">` : ''}
+                            <div class="profile-info">
+                                <div class="profile-display">${p.display || p.handle}</div>
+                                <div class="profile-handle">@${p.handle}</div>
+                                ${p.badge ? `<span class="profile-badge"><i class="fa-solid fa-award"></i> ${p.badge}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="profile-details">
+                            <div class="profile-detail-item">
+                                <div class="profile-detail-label">Enlisted</div>
+                                <div class="profile-detail-value">${enlisted}</div>
+                            </div>
+                            <div class="profile-detail-item">
+                                <div class="profile-detail-label">Languages</div>
+                                <div class="profile-detail-value">${fluency}</div>
+                            </div>
+                        </div>
+                        ${orgHtml}
+                    </div>
+                `;
+            } catch (e) {
+                result.innerHTML = `<div class="lookup-error"><i class="fa-solid fa-circle-exclamation"></i> Player "${handle}" not found</div>`;
+            }
+        }
+
+        function lookupOrgFromPlayer(sid) {
+            document.getElementById('orgInput').value = sid;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelector('[data-tab="org"]').classList.add('active');
+            document.getElementById('panel-org').classList.add('active');
+            lookupOrg();
+        }
+
+        // --- Org Lookup ---
+        document.getElementById('orgSearchBtn').addEventListener('click', () => lookupOrg());
+        document.getElementById('orgInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupOrg(); });
+
+        async function lookupOrg() {
+            const sid = document.getElementById('orgInput').value.trim().toUpperCase();
+            if (!sid) return;
+            const result = document.getElementById('orgResult');
+            result.innerHTML = '<div class="loading">Looking up organization</div>';
+            try {
+                const data = await scApiFetch(`cache/organization/${encodeURIComponent(sid)}`);
+
+                const focusHtml = (data.focus && (data.focus.primary || data.focus.secondary)) ? `
+                    <div class="org-focus-row">
+                        ${data.focus.primary ? `
+                            <div class="org-focus-item">
+                                ${data.focus.primary.image ? `<img class="org-focus-icon" src="${data.focus.primary.image}">` : ''}
+                                <div>
+                                    <div class="org-focus-label">Primary</div>
+                                    <div class="org-focus-name">${data.focus.primary.name}</div>
+                                </div>
+                            </div>` : ''}
+                        ${data.focus.secondary ? `
+                            <div class="org-focus-item">
+                                ${data.focus.secondary.image ? `<img class="org-focus-icon" src="${data.focus.secondary.image}">` : ''}
+                                <div>
+                                    <div class="org-focus-label">Secondary</div>
+                                    <div class="org-focus-name">${data.focus.secondary.name}</div>
+                                </div>
+                            </div>` : ''}
+                    </div>` : '';
+
+                const tags = [];
+                if (data.archetype) tags.push(`<span class="mission-tag tag-type">${data.archetype}</span>`);
+                if (data.commitment) tags.push(`<span class="mission-tag tag-system">${data.commitment}</span>`);
+                if (data.lang) tags.push(`<span class="mission-tag tag-faction">${data.lang}</span>`);
+                if (data.recruiting) tags.push(`<span class="mission-tag" style="background:rgba(87,242,135,0.12);color:#57f287;border:1px solid rgba(87,242,135,0.15);">Recruiting</span>`);
+                if (data.roleplay) tags.push(`<span class="mission-tag tag-blueprint">Roleplay</span>`);
+
+                result.innerHTML = `
+                    <div class="profile-card">
+                        ${data.banner ? `<div class="org-banner-wrap"><img class="org-banner" src="${data.banner}" alt="Banner"></div>` : ''}
+                        <div class="org-header">
+                            ${data.logo ? `<img class="org-logo" src="${data.logo}" alt="${data.name}">` : ''}
+                            <div>
+                                <div class="org-name">${data.name}</div>
+                                <div class="org-sid">[${data.sid}]</div>
+                            </div>
+                        </div>
+                        <div class="org-tags">${tags.join('')}</div>
+                        <div class="org-stats">
+                            <div class="org-stat">
+                                <div class="org-stat-value">${(data.members || 0).toLocaleString()}</div>
+                                <div class="org-stat-label">Members</div>
+                            </div>
+                            <div class="org-stat">
+                                <div class="org-stat-value">${data.commitment || '—'}</div>
+                                <div class="org-stat-label">Commitment</div>
+                            </div>
+                            <div class="org-stat">
+                                <div class="org-stat-value">${data.archetype || '—'}</div>
+                                <div class="org-stat-label">Archetype</div>
+                            </div>
+                        </div>
+                        ${focusHtml}
+                    </div>
+                    <div class="card" id="orgMembersCard">
+                        <div class="card-title"><i class="fa-solid fa-users"></i> Members & Leadership</div>
+                        <div id="orgMembersList"><div class="loading">Loading members</div></div>
+                    </div>
+                `;
+
+                loadOrgMembers(sid);
+            } catch (e) {
+                result.innerHTML = `<div class="lookup-error"><i class="fa-solid fa-circle-exclamation"></i> Organization "${sid}" not found</div>`;
+            }
+        }
+
+        async function loadOrgMembers(sid) {
+            try {
+                const data = await scApiFetch(`live/organization_members/${encodeURIComponent(sid)}`);
+                const list = document.getElementById('orgMembersList');
+                if (!data || data.length === 0) {
+                    list.innerHTML = '<div style="color:#1c4d6e;font-size:0.75rem;text-align:center;padding:8px;">No members found</div>';
+                    return;
+                }
+                list.innerHTML = data.map(m => {
+                    const stars = m.stars ? '★'.repeat(m.stars) : '';
+                    const roles = m.roles ? m.roles.map(r => `<span class="member-role">${r}</span>`).join(' ') : '';
+                    return `
+                        <div class="member-row" style="cursor:pointer;" onclick="document.getElementById('playerInput').value='${m.handle}';lookupOrgFromPlayerReverse();">
+                            ${m.image ? `<img class="member-avatar" src="${m.image}" alt="${m.handle}">` : '<div class="member-avatar"></div>'}
+                            <div class="member-info">
+                                <div class="member-name">${m.display || m.handle} <span class="member-stars">${stars}</span></div>
+                                <div class="member-rank">${m.rank || 'Member'} ${roles}</div>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (e) {
+                document.getElementById('orgMembersList').innerHTML = '<div style="color:#ed4245;font-size:0.75rem;text-align:center;padding:8px;">Failed to load members</div>';
+            }
+        }
+
+        function lookupOrgFromPlayerReverse() {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelector('[data-tab="player"]').classList.add('active');
+            document.getElementById('panel-player').classList.add('active');
+            lookupPlayer();
+        }
 
         // ===== QUOTE ROTATION =====
         const scQuotes = [
