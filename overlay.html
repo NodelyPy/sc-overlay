@@ -1183,7 +1183,7 @@
             const result = document.getElementById('playerResult');
             result.innerHTML = '<div class="loading">Looking up player</div>';
             try {
-                const data = await scApiFetch(`cache/user/${encodeURIComponent(handle)}`);
+                const data = await scApiFetch(`live/user/${encodeURIComponent(handle)}`);
                 const p = data.profile;
                 const o = data.organization;
                 const enlisted = p.enlisted ? new Date(p.enlisted).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
@@ -1215,7 +1215,7 @@
 
                 if (o && o.sid) {
                     try {
-                        const orgData = await scApiFetch(`cache/organization/${encodeURIComponent(o.sid)}`);
+                        const orgData = await scApiFetch(`live/organization/${encodeURIComponent(o.sid)}`);
                         const focusHtml = (orgData.focus && (orgData.focus.primary || orgData.focus.secondary)) ? `
                             <div class="org-focus-row">
                                 ${orgData.focus.primary ? `<div class="org-focus-item">${orgData.focus.primary.image ? `<img class="org-focus-icon" src="${orgData.focus.primary.image}">` : ''}<div><div class="org-focus-label">Primary</div><div class="org-focus-name">${orgData.focus.primary.name}</div></div></div>` : ''}
@@ -1286,7 +1286,7 @@
             const result = document.getElementById('orgResult');
             result.innerHTML = '<div class="loading">Looking up organization</div>';
             try {
-                const data = await scApiFetch(`cache/organization/${encodeURIComponent(sid)}`);
+                const data = await scApiFetch(`live/organization/${encodeURIComponent(sid)}`);
 
                 const focusHtml = (data.focus && (data.focus.primary || data.focus.secondary)) ? `
                     <div class="org-focus-row">
@@ -1372,6 +1372,8 @@
                     list.innerHTML = '<div style="color:#1c4d6e;font-size:0.75rem;text-align:center;padding:8px;">No members found</div>';
                     return;
                 }
+                const titleEl = document.querySelector('#orgMembersCard .card-title');
+                if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-users"></i> Members & Leadership <span class="live-badge">${allMembers.length} loaded</span>`;
                 const capped = page > maxPages;
                 list.innerHTML = (capped ? `<div style="color:#1c4d6e;font-size:0.65rem;text-align:center;padding:4px;">Showing first ${allMembers.length} members</div>` : '') +
                     allMembers.map(m => {
