@@ -712,18 +712,27 @@
 
             <!-- CRAFTING -->
             <div class="panel" id="panel-crafting">
-                <input type="text" class="mission-search" id="craftSearch" placeholder="Search blueprints...">
+                <input type="text" class="mission-search" id="craftSearch" placeholder="Search blueprints, materials, factions...">
+                <div class="mission-filters" id="craftSourceFilters">
+                    <button class="mission-filter" data-craft-source="all">All</button>
+                    <button class="mission-filter active" data-craft-source="reward">Mission Reward</button>
+                    <button class="mission-filter" data-craft-source="default">Default</button>
+                </div>
                 <div class="mission-filters" id="craftTypeFilters">
-                    <button class="mission-filter active" data-craft-type="all">All</button>
+                    <button class="mission-filter active" data-craft-type="all">All Types</button>
                     <button class="mission-filter" data-craft-type="Char_Armor">Armor</button>
                     <button class="mission-filter" data-craft-type="WeaponPersonal">Weapons</button>
                     <button class="mission-filter" data-craft-type="WeaponAttachment">Attachments</button>
+                    <button class="mission-filter" data-craft-type="Component">Components</button>
                 </div>
                 <div class="mission-filters" id="craftSubFilters">
                     <button class="mission-filter active" data-craft-sub="all">All Grades</button>
                     <button class="mission-filter" data-craft-sub="Light">Light</button>
                     <button class="mission-filter" data-craft-sub="Medium">Medium</button>
                     <button class="mission-filter" data-craft-sub="Heavy">Heavy</button>
+                </div>
+                <div class="mission-filters" id="craftFactionFilters" style="display:none;">
+                    <button class="mission-filter active" data-craft-faction="all">All Factions</button>
                 </div>
                 <div class="mission-count" id="craftCount"></div>
                 <div id="craftList"><div class="loading">Loading blueprints</div></div>
@@ -1040,20 +1049,120 @@
             });
         }
 
-        // ===== CRAFTING (Live blueprints from scunpacked-data) =====
+        // ===== CRAFTING (Live data from StarCitizenWiki API) =====
+        const SC_WIKI_API = 'https://api.star-citizen.wiki/api';
         let allBlueprints = null;
+        let craftSourceFilter = 'reward';
         let craftTypeFilter = 'all';
         let craftSubFilter = 'all';
+        let craftFactionFilter = 'all';
+        const componentTypes = ['WeaponGun', 'PowerPlant', 'QuantumDrive', 'Shield', 'Cooler', 'DockingCollar', 'MissileLauncher'];
+
+        async function fetchAllPages(endpoint, onProgress) {
+            const sep = endpoint.includes('?') ? '&' : '?';
+            const res = await fetch(`${SC_WIKI_API}/${endpoint}${sep}page[size]=200&page[number]=1`);
+            const json = await res.json();
+            let allData = [...json.data];
+            const lastPage = json.meta.last_page;
+            const total = json.meta.total;
+            if (onProgress) onProgress(allData.length, total);
+            if (lastPage > 1) {
+                const fetches = [];
+                for (let p = 2; p <= lastPage; p++) {
+                    fetches.push(
+                        fetch(`${SC_WIKI_API}/${endpoint}${sep}page[size]=200&page[number]=${p}`)
+                            .then(r => r.json()).then(j => { allData = allData.concat(j.data); if (onProgress) onProgress(allData.length, total); })
+                    );
+                }
+                await Promise.all(fetches);
+            }
+            return allData;
+        }
 
         async function loadBlueprints() {
             if (allBlueprints) { renderCrafting(); return; }
+            const statusEl = document.getElementById('craftList');
             try {
-                const res = await fetch('https://raw.githubusercontent.com/StarCitizenWiki/scunpacked-data/master/blueprints.json');
-                allBlueprints = await res.json();
+                statusEl.innerHTML = '<div class="loading">Fetching blueprints & missions from SC Wiki API</div>';
+
+                const [bpData, missionData] = await Promise.all([
+                    fetchAllPages('blueprints', (loaded, total) => {
+                        statusEl.innerHTML = `<div class="loading">Loading blueprints... ${loaded}/${total}</div>`;
+                    }),
+                    fetchAllPages('missions?filter[has_blueprints]=1')
+                ]);
+
+                const missionMap = {};
+                missionData.forEach(m => {
+                    if ((m.title || '').includes('PLACEHOLDER')) return;
+                    (m.blueprints || []).forEach(bp => {
+                        const bpUuid = (bp.link || '').split('/').pop();
+                        if (!bpUuid) return;
+                        if (!missionMap[bpUuid]) missionMap[bpUuid] = [];
+                        const factionName = m.faction?.name || null;
+                        missionMap[bpUuid].push({
+                            title: m.title,
+                            faction: (factionName && factionName.includes('PLACEHOLDER')) ? null : factionName,
+                            starSystems: m.star_systems || [],
+                            rewardMin: m.reward_min,
+                            rewardMax: m.reward_max,
+                            illegal: m.illegal,
+                            missionGiver: m.mission_giver,
+                            rankIndex: m.rank_index,
+                            timeMinutes: m.time_to_complete_minutes,
+                            shareable: m.shareable,
+                        });
+                    });
+                });
+
+                allBlueprints = bpData.map(bp => {
+                    const out = bp.output || {};
+                    return {
+                        uuid: bp.uuid,
+                        name: bp.output_name || out.name || 'Unknown Item',
+                        type: out.type || '',
+                        typeLabel: out.type_label || out.type || '',
+                        subType: out.sub_type || '',
+                        grade: out.grade || '',
+                        craftTime: bp.craft_time_seconds,
+                        craftTimeLabel: bp.craft_time_label,
+                        isDefault: bp.is_available_by_default,
+                        ingredients: (bp.ingredients || []).map(i => ({
+                            name: i.name,
+                            kind: i.kind,
+                            qtyScu: i.quantity_scu,
+                            qty: i.quantity,
+                        })),
+                        missions: missionMap[bp.uuid] || [],
+                    };
+                });
+
+                buildFactionFilters();
                 renderCrafting();
-            } catch {
-                document.getElementById('craftList').innerHTML = '<div class="loading">Failed to load blueprints</div>';
+            } catch (e) {
+                console.error('Crafting load error:', e);
+                statusEl.innerHTML = '<div class="loading">Failed to load blueprint data</div>';
             }
+        }
+
+        function buildFactionFilters() {
+            const factions = new Set();
+            allBlueprints.forEach(bp => {
+                bp.missions.forEach(m => { if (m.faction) factions.add(m.faction); });
+            });
+            const wrap = document.getElementById('craftFactionFilters');
+            const sorted = [...factions].sort();
+            wrap.innerHTML = '<button class="mission-filter active" data-craft-faction="all">All Factions</button>' +
+                sorted.map(f => `<button class="mission-filter" data-craft-faction="${f}">${f}</button>`).join('');
+            wrap.style.display = 'flex';
+            wrap.querySelectorAll('.mission-filter').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    wrap.querySelectorAll('.mission-filter').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    craftFactionFilter = btn.dataset.craftFaction;
+                    renderCrafting();
+                });
+            });
         }
 
         function formatCraftTime(seconds) {
@@ -1066,58 +1175,35 @@
             return `${s}s`;
         }
 
-        function parsePoolKey(key) {
-            if (!key) return 'Mission Reward';
-            const clean = key.replace('BP_MISSIONREWARD_', '');
-            const factionMap = [
-                ['FoxwellEnforcement', 'Foxwell'], ['Foxwell', 'Foxwell'],
-                ['HeadHunters', 'Headhunters'], ['InterSec', 'InterSec'],
-                ['CitizensForProsperity', 'CFP'], ['CFP', 'CFP'],
-                ['BountyHuntersGuild', 'BHG'], ['BHG', 'BHG'],
-                ['BitZeros', 'Bit Zeros'], ['VaughnGenerator', 'Vaughn'],
-                ['NorthRock', 'Northrock'], ['NorthRockFPSKill', 'Northrock'],
-                ['Rayari', 'Rayari'], ['Shubin', 'Shubin'],
-                ['IDS', 'InterSec'], ['RDC', 'RDC'], ['ASD', 'ASD'],
-            ];
-            for (const [prefix, faction] of factionMap) {
-                if (clean.startsWith(prefix)) {
-                    let rest = clean.slice(prefix.length).replace(/^_/, '');
-                    rest = rest.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
-                        .replace(/Eliminate Specific/g, 'Bounty').replace(/Eliminate ALL/g, 'Clear Out')
-                        .replace(/EliminateBoss/g, 'Boss Bounty').replace(/EliminateSpecific/g, 'Bounty')
-                        .replace(/FPS Mining/g, 'Hand Mining').replace(/Ship Mining/g, 'Ship Mining')
-                        .replace(/Resource Gathering/g, '').replace(/Mercenary FPS /g, '')
-                        .replace(/Region ?AB/g, '(A-B)').replace(/Region ?CD/g, '(C-D)')
-                        .replace(/Region ?C$/g, '(C)').replace(/Region ?D$/g, '(D)')
-                        .replace(/Stanton$/g, '(Stanton)').replace(/Pyro$/g, '(Pyro)')
-                        .replace(/PyroNyx$/g, '(Pyro/Nyx)').replace(/\s+/g, ' ').trim();
-                    return rest ? `${faction}: ${rest}` : faction;
-                }
-            }
-            return clean.replace(/_/g, ' ');
-        }
-
         function renderCrafting() {
             if (!allBlueprints) return;
             const list = document.getElementById('craftList');
             const q = document.getElementById('craftSearch').value.toLowerCase();
 
             const filtered = allBlueprints.filter(bp => {
-                const out = bp.output || {};
-                const matchType = craftTypeFilter === 'all' || (out.type || '').startsWith(craftTypeFilter);
-                const matchSub = craftSubFilter === 'all' || (out.subType || out.subtype || '').toLowerCase() === craftSubFilter.toLowerCase();
+                const hasMissions = bp.missions.length > 0;
+
+                if (craftSourceFilter === 'reward' && !hasMissions) return false;
+                if (craftSourceFilter === 'default' && !bp.isDefault) return false;
+
+                const matchType = craftTypeFilter === 'all'
+                    || (craftTypeFilter === 'Component' ? componentTypes.includes(bp.type) : bp.type.startsWith(craftTypeFilter));
+                const matchSub = craftSubFilter === 'all' || bp.subType.toLowerCase() === craftSubFilter.toLowerCase();
                 if (!matchType || !matchSub) return false;
+
+                if (craftFactionFilter !== 'all') {
+                    if (!bp.missions.some(m => m.faction === craftFactionFilter)) return false;
+                }
+
                 if (!q) return true;
-                const name = (out.name || '').toLowerCase();
-                const type = (out.type || '').toLowerCase();
-                const sub = (out.subType || out.subtype || '').toLowerCase();
-                const ingredients = (bp.tiers || []).flatMap(t =>
-                    (t.requirements?.children || []).flatMap(g =>
-                        (g.children || []).map(r => (r.name || '').toLowerCase())
-                    )
-                );
-                const sources = (bp.availability?.reward_pools || []).map(p => parsePoolKey(p.key).toLowerCase()).join(' ');
-                return name.includes(q) || type.includes(q) || sub.includes(q) || ingredients.some(i => i.includes(q)) || sources.includes(q);
+                const searchFields = [
+                    bp.name, bp.type, bp.typeLabel, bp.subType,
+                    ...bp.ingredients.map(i => i.name),
+                    ...bp.missions.map(m => m.title),
+                    ...bp.missions.map(m => m.faction || ''),
+                    ...bp.missions.flatMap(m => m.starSystems),
+                ].join(' ').toLowerCase();
+                return searchFields.includes(q);
             });
 
             document.getElementById('craftCount').textContent = filtered.length + ' blueprints found';
@@ -1128,55 +1214,59 @@
             }
 
             list.innerHTML = filtered.map(bp => {
-                const out = bp.output || {};
-                const avail = bp.availability || {};
-                const tier = (bp.tiers && bp.tiers[0]) || {};
-                const craftTime = tier.craft_time_seconds || tier.craftTimeSeconds;
-                const groups = tier.requirements?.children || [];
-                const ingredients = groups.flatMap(g =>
-                    (g.children || []).map(r => ({
-                        group: g.name || 'Materials',
-                        name: r.name || 'Unknown',
-                        qty: r.quantity_scu ?? r.quantityScu ?? r.quantity ?? '?'
-                    }))
-                );
-                const isDefault = avail.default === true;
-                const rewardPools = avail.reward_pools || avail.rewardPools || [];
-                const availTag = isDefault
-                    ? '<span class="mission-tag tag-system">Default Blueprint</span>'
-                    : rewardPools.length > 0
-                        ? '<span class="mission-tag tag-blueprint">Mission Reward</span>'
-                        : '<span class="mission-tag tag-type">Unknown Source</span>';
+                let sourceHtml = '';
+                if (bp.missions.length > 0) {
+                    const uniqueMissions = [];
+                    const seen = new Set();
+                    bp.missions.forEach(m => {
+                        const key = m.title + '|' + m.faction;
+                        if (!seen.has(key)) { seen.add(key); uniqueMissions.push(m); }
+                    });
+                    sourceHtml = `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(254,231,92,0.06);border:1px solid rgba(254,231,92,0.2);">
+                        <div style="font-size:0.68rem;font-weight:700;color:#fee75c;margin-bottom:6px;"><i class="fa-solid fa-scroll"></i> Unlocking Missions (${uniqueMissions.length})</div>
+                        ${uniqueMissions.slice(0, 5).map(m => `<div style="padding:5px 0;border-bottom:1px solid rgba(28,77,110,0.15);">
+                            <div style="font-size:0.75rem;color:#ebebeb;font-weight:600;">${m.title}</div>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;">
+                                ${m.faction ? `<span style="color:#35b6ec;font-weight:700;font-size:0.62rem;padding:1px 6px;border-radius:4px;background:rgba(53,182,236,0.12);border:1px solid rgba(53,182,236,0.2);">${m.faction}</span>` : ''}
+                                ${m.starSystems.length > 0 ? `<span style="font-size:0.62rem;color:#9bc3d1;">${m.starSystems.join(', ')}</span>` : ''}
+                                ${m.rewardMin ? `<span style="font-size:0.62rem;color:#57f287;font-weight:600;"><i class="fa-solid fa-coins" style="font-size:0.55rem;"></i> ${m.rewardMin.toLocaleString()} aUEC</span>` : ''}
+                                ${m.illegal ? '<span style="font-size:0.58rem;padding:1px 5px;border-radius:3px;background:rgba(237,66,69,0.12);color:#ed4245;border:1px solid rgba(237,66,69,0.15);">ILLEGAL</span>' : ''}
+                                ${m.timeMinutes ? `<span style="font-size:0.62rem;color:#9bc3d1;"><i class="fa-solid fa-clock" style="font-size:0.55rem;"></i> ~${m.timeMinutes}min</span>` : ''}
+                            </div>
+                        </div>`).join('')}
+                        ${uniqueMissions.length > 5 ? `<div style="font-size:0.62rem;color:#1c4d6e;text-align:center;padding:4px;">+${uniqueMissions.length - 5} more missions</div>` : ''}
+                    </div>`;
+                } else if (bp.isDefault) {
+                    sourceHtml = `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(87,242,135,0.06);border:1px solid rgba(87,242,135,0.15);">
+                        <div style="font-size:0.72rem;color:#57f287;font-weight:600;"><i class="fa-solid fa-unlock"></i> Default Blueprint — no mission required</div>
+                    </div>`;
+                }
 
-                const sourceList = rewardPools.map(p => parsePoolKey(p.key));
-                const sourceHtml = rewardPools.length > 0
-                    ? `<div style="font-size:0.65rem;color:#9bc3d1;padding:4px 0;border-top:1px solid rgba(28,77,110,0.15);margin-top:6px;">
-                        <span style="color:#fee75c;"><i class="fa-solid fa-location-dot"></i></span> ${sourceList.join(' · ')}
-                       </div>`
-                    : isDefault
-                        ? `<div style="font-size:0.65rem;color:#57f287;padding:4px 0;border-top:1px solid rgba(28,77,110,0.15);margin-top:6px;"><i class="fa-solid fa-unlock"></i> Default — no mission required</div>`
-                        : '';
-
-                const ingredientHtml = ingredients.length > 0 ? `
+                const ingredientHtml = bp.ingredients.length > 0 ? `
                     <div class="drops-toggle" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-                        <span class="arrow">▶</span> <i class="fa-solid fa-cubes" style="font-size:0.6rem;"></i> ${ingredients.length} ingredient${ingredients.length > 1 ? 's' : ''}
+                        <span class="arrow">▶</span> <i class="fa-solid fa-cubes" style="font-size:0.6rem;"></i> ${bp.ingredients.length} ingredient${bp.ingredients.length > 1 ? 's' : ''} needed
                     </div>
                     <div class="drops-list">
-                        ${ingredients.map(i => `<div class="drop-item"><span class="drop-icon">📦</span><span class="drop-name">${i.name}</span><span style="margin-left:auto;color:#57f287;font-size:0.65rem;font-weight:600;">${i.qty} SCU</span></div>`).join('')}
+                        ${bp.ingredients.map(i => {
+                            const qtyText = i.qtyScu ? `${i.qtyScu} SCU` : i.qty ? `${i.qty}x` : '?';
+                            const kindIcon = i.kind === 'resource' ? '⛏' : '📦';
+                            return `<div class="drop-item"><span class="drop-icon">${kindIcon}</span><span class="drop-name">${i.name}</span><span style="margin-left:auto;color:#57f287;font-size:0.65rem;font-weight:600;">${qtyText}</span></div>`;
+                        }).join('')}
                     </div>` : '';
 
+                const typeLabel = bp.typeLabel || bp.type.replace('Char_Armor_','Armor: ').replace('WeaponPersonal','Weapon').replace('WeaponAttachment','Attachment').replace('WeaponGun','Ship Weapon');
+
                 return `
-                <div class="mission-card">
-                    <div class="mission-name">${out.name || 'Unknown Item'}</div>
+                <div class="mission-card${bp.missions.length > 0 ? '' : ' illegal'}">
+                    <div class="mission-name">${bp.name}</div>
                     <div class="mission-meta">
-                        ${out.type ? `<span class="mission-tag tag-faction">${out.type.replace('Char_Armor_','Armor: ').replace('WeaponPersonal','Weapon').replace('WeaponAttachment','Attachment').replace('Char_Armor_','')}</span>` : ''}
-                        ${(out.subType || out.subtype) ? `<span class="mission-tag tag-type">${out.subType || out.subtype}</span>` : ''}
-                        ${out.grade ? `<span class="mission-tag" style="background:rgba(155,195,209,0.12);color:#9bc3d1;border:1px solid rgba(155,195,209,0.15);">Grade ${out.grade}</span>` : ''}
-                        ${availTag}
+                        ${bp.type ? `<span class="mission-tag tag-faction">${typeLabel}</span>` : ''}
+                        ${bp.subType && bp.subType !== 'UNDEFINED' ? `<span class="mission-tag tag-type">${bp.subType}</span>` : ''}
+                        ${bp.grade ? `<span class="mission-tag" style="background:rgba(155,195,209,0.12);color:#9bc3d1;border:1px solid rgba(155,195,209,0.15);">Grade ${bp.grade}</span>` : ''}
+                        ${bp.missions.length > 0 ? '<span class="mission-tag tag-blueprint">Mission Reward</span>' : bp.isDefault ? '<span class="mission-tag tag-system">Default</span>' : ''}
                     </div>
                     <div class="mission-reward">
-                        <span style="color:#35b6ec;font-weight:600;font-size:0.75rem;"><i class="fa-solid fa-clock"></i> ${formatCraftTime(craftTime)}</span>
-                        ${bp.tiers && bp.tiers.length > 1 ? `<span class="mission-xp">${bp.tiers.length} tiers</span>` : ''}
+                        <span style="color:#35b6ec;font-weight:600;font-size:0.75rem;"><i class="fa-solid fa-clock"></i> ${bp.craftTimeLabel || formatCraftTime(bp.craftTime)}</span>
                     </div>
                     ${sourceHtml}
                     ${ingredientHtml}
@@ -1185,6 +1275,15 @@
         }
 
         document.getElementById('craftSearch').addEventListener('input', () => renderCrafting());
+
+        document.querySelectorAll('#craftSourceFilters .mission-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#craftSourceFilters .mission-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                craftSourceFilter = btn.dataset.craftSource;
+                renderCrafting();
+            });
+        });
 
         document.querySelectorAll('#craftTypeFilters .mission-filter').forEach(btn => {
             btn.addEventListener('click', () => {
